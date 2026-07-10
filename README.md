@@ -1,24 +1,28 @@
-# Sherlock — Interview Integrity System
+# Sherlock Interview Integrity System - v1.0.0
 
-![Sherlock hero](docs/images/landing-page.png)
+Sherlock hero
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Vinayak150/sherlock-interview-integrity-system/ci.yml?branch=main&label=build)](https://github.com/Vinayak150/sherlock-interview-integrity-system/actions)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?logo=railway&logoColor=white)](https://railway.app/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[Build Status](https://github.com/Vinayak150/sherlock-interview-integrity-system/actions)
+[License](LICENSE)
+[TypeScript](https://www.typescriptlang.org/)
+[Python](https://www.python.org/)
+[React](https://react.dev/)
+[Railway](https://railway.app/)
+[Docker](docker-compose.yml)
 
 > Real-time AI-powered interview integrity analysis using Bayesian evidence fusion, lifecycle state machines, explainable decision making, and human-in-the-loop review.
 
-| | |
-|---|---|
-| **Status** | ✅ Complete — milestones M0 through M16 |
-| **Scope** | Pilot implementation with intentional stub integrations |
+
+|                |                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Status**     | ✅ Complete — milestones M0 through M16                                                                                         |
+| **Scope**      | Pilot implementation with intentional stub integrations                                                                        |
 | **Repository** | [github.com/Vinayak150/sherlock-interview-integrity-system](https://github.com/Vinayak150/sherlock-interview-integrity-system) |
 
+
 ---
+
+
 
 ## Table of contents
 
@@ -42,6 +46,8 @@
 
 ---
 
+
+
 ## Overview
 
 Sherlock continuously evaluates whether the live interview participant matches the applicant of record. Evidence from multiple weak signals is fused into a Bayesian belief, routed through an eight-state lifecycle machine, and surfaced to human reviewers with deterministic explanations.
@@ -50,12 +56,16 @@ The system is implemented as a **modular monolith** (`orchestrator/`) with separ
 
 Authoritative specifications:
 
-- [`docs/architecture.md`](docs/architecture.md) — what to build
-- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — how to build it
+- `[docs/architecture.md](docs/architecture.md)` — what to build
+- `[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)` — how to build it
 
 ---
 
+
+
 ## Features
+
+
 
 ### Core pipeline
 
@@ -65,12 +75,16 @@ Authoritative specifications:
 - **Decision engine** — abstention, tie-breaking, alerts, reviewer recommendations
 - **Explanation engine** — deterministic Evidence Reports; optional LLM narrative (stub)
 
+
+
 ### Product surfaces
 
 - **Landing page** — enterprise marketing shell with architecture overview
 - **Reviewer dashboard** — session search, live SSE updates, override, accommodation disclosure
 - **Aggregate analytics** — unknown rate, lifecycle distribution, review queue (Recharts)
 - **Dark mode** — system preference detection with persistent toggle
+
+
 
 ### Infrastructure
 
@@ -81,35 +95,41 @@ Authoritative specifications:
 
 ---
 
+
+
 ## Screenshots
+
+
 
 ### Landing page
 
-![Landing page](docs/images/landing-page.png)
+Landing page
 
 ### Dashboard overview
 
-![Dashboard](docs/images/dashboard.png)
+Dashboard
 
 ### Reviewer workspace
 
-![Reviewer workspace](docs/images/reviewer-workspace.png)
+Reviewer workspace
 
 ### Aggregate analytics
 
-![Aggregate dashboard](docs/images/aggregate-dashboard.png)
+Aggregate dashboard
 
 ### Dark mode
 
-![Dark mode](docs/images/dark-mode.png)
+Dark mode
 
-Regenerate screenshots: `cd dashboard && npm run screenshots` — see [`docs/images/README.md`](docs/images/README.md).
+Regenerate screenshots: `cd dashboard && npm run screenshots` — see `[docs/images/README.md](docs/images/README.md)`.
 
 ---
 
+
+
 ## System architecture
 
-![System architecture](docs/images/architecture.png)
+System architecture
 
 ```mermaid
 flowchart LR
@@ -152,20 +172,28 @@ flowchart LR
   API --> REV
 ```
 
+
+
+
+
 ### Additional diagrams
 
-| Diagram | Description |
-|---------|-------------|
-| [Runtime pipeline](docs/architecture-diagram-pipeline.md) | Participant → bundles → fusion → FSM → decision → explanation |
-| [Infrastructure](docs/architecture-diagram-infrastructure.md) | PostgreSQL, Redis, routing, recovery, model serving |
-| [Repository layout](docs/architecture-diagram-repository.md) | Monorepo packages and orchestrator modules |
-| [Diagram index](docs/architecture-diagram.md) | Full index with Pilot notes |
+
+| Diagram                                                       | Description                                                   |
+| ------------------------------------------------------------- | ------------------------------------------------------------- |
+| [Runtime pipeline](docs/architecture-diagram-pipeline.md)     | Participant → bundles → fusion → FSM → decision → explanation |
+| [Infrastructure](docs/architecture-diagram-infrastructure.md) | PostgreSQL, Redis, routing, recovery, model serving           |
+| [Repository layout](docs/architecture-diagram-repository.md)  | Monorepo packages and orchestrator modules                    |
+| [Diagram index](docs/architecture-diagram.md)                 | Full index with Pilot notes                                   |
+
 
 ---
 
+
+
 ## Deployment architecture
 
-![Deployment architecture](docs/images/deployment.png)
+Deployment architecture
 
 ```mermaid
 flowchart TB
@@ -187,19 +215,25 @@ flowchart TB
   DASH -->|HTTP + SSE| ORCH
 ```
 
-See [`docs/architecture-diagram-deployment.md`](docs/architecture-diagram-deployment.md) for environment variables and data flow.
+
+
+See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deployment.md)` for environment variables and data flow.
 
 ---
 
+
+
 ## Repository structure
 
-| Package | Responsibility |
-|---------|----------------|
-| `contracts/` | Shared Zod schemas — `EvidenceEvent`, signal-health, bundle payloads |
-| `orchestrator/` | Modular monolith — evidence, fusion, FSM, decision, explanation, API, security |
-| `model-serving/` | Python inference — embeddings and liveness via FastAPI (Pilot stubs) |
-| `dashboard/` | React reviewer UI — landing page, workspace, aggregate analytics |
-| `client-agent/` | Browser extension — consented device/OS timing events |
+
+| Package          | Responsibility                                                                 |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `contracts/`     | Shared Zod schemas — `EvidenceEvent`, signal-health, bundle payloads           |
+| `orchestrator/`  | Modular monolith — evidence, fusion, FSM, decision, explanation, API, security |
+| `model-serving/` | Python inference — embeddings and liveness via FastAPI (Pilot stubs)           |
+| `dashboard/`     | React reviewer UI — landing page, workspace, aggregate analytics               |
+| `client-agent/`  | Browser extension — consented device/OS timing events                          |
+
 
 ```
 .
@@ -225,25 +259,31 @@ See [`docs/architecture-diagram-deployment.md`](docs/architecture-diagram-deploy
 
 ---
 
+
+
 ## Technology stack
 
-| Technology | Role |
-|------------|------|
-| TypeScript | Orchestrator, contracts, dashboard, client-agent |
-| Node.js | Orchestrator runtime; npm workspaces |
-| React | Landing page + reviewer dashboard |
-| Python | Model-serving inference |
-| FastAPI | Model-serving HTTP API |
-| PostgreSQL | Evidence events and session snapshots |
-| Redis | Session registry |
-| Docker | Local development and CI |
-| Tailwind CSS | Dashboard styling |
-| Recharts | Aggregate analytics charts |
-| Vitest / Pytest | TypeScript and Python tests |
-| Zod | Runtime schema validation |
-| Railway | Cloud deployment target |
+
+| Technology      | Role                                             |
+| --------------- | ------------------------------------------------ |
+| TypeScript      | Orchestrator, contracts, dashboard, client-agent |
+| Node.js         | Orchestrator runtime; npm workspaces             |
+| React           | Landing page + reviewer dashboard                |
+| Python          | Model-serving inference                          |
+| FastAPI         | Model-serving HTTP API                           |
+| PostgreSQL      | Evidence events and session snapshots            |
+| Redis           | Session registry                                 |
+| Docker          | Local development and CI                         |
+| Tailwind CSS    | Dashboard styling                                |
+| Recharts        | Aggregate analytics charts                       |
+| Vitest / Pytest | TypeScript and Python tests                      |
+| Zod             | Runtime schema validation                        |
+| Railway         | Cloud deployment target                          |
+
 
 ---
+
+
 
 ## Quick start
 
@@ -256,6 +296,8 @@ make ci
 ```
 
 ---
+
+
 
 ## Local development
 
@@ -272,15 +314,19 @@ cd model-serving && pip install -e ".[dev]" && python -m model_serving.main
 npm run dev --workspace=@sherlock/dashboard
 ```
 
-| Service | Port |
-|---------|------|
-| Orchestrator | `8080` |
+
+| Service       | Port   |
+| ------------- | ------ |
+| Orchestrator  | `8080` |
 | Model Serving | `8081` |
-| Dashboard | `5173` |
+| Dashboard     | `5173` |
+
 
 Set `VITE_ORCHESTRATOR_URL=http://localhost:8080` when building the dashboard for a remote orchestrator.
 
 ---
+
+
 
 ## Docker deployment
 
@@ -294,6 +340,8 @@ make docker-down
 
 ---
 
+
+
 ## Railway deployment
 
 Deploy as separate Railway services:
@@ -302,9 +350,11 @@ Deploy as separate Railway services:
 
 1. Connect the GitHub repository.
 2. Set root directory to `orchestrator/` (or use the Dockerfile).
-3. Add **PostgreSQL** and **Redis** plugins; map `POSTGRES_*` and `REDIS_URL`.
+3. Add **PostgreSQL** and **Redis** plugins; map `POSTGRES_`* and `REDIS_URL`.
 4. Railway injects `PORT` — the orchestrator reads it automatically.
 5. Set `MODEL_SERVING_URL` to the inference service URL.
+
+
 
 ### Dashboard
 
@@ -313,37 +363,47 @@ Deploy as separate Railway services:
 3. Start command: `npm run start --workspace=@sherlock/dashboard`
 4. Set `VITE_ORCHESTRATOR_URL` at **build time** to the orchestrator public URL.
 
+
+
 ### Model serving
 
 1. Deploy `model-serving/` with its Dockerfile.
 2. Expose port `8081` (or Railway `PORT`).
 
-See [`docs/architecture-diagram-deployment.md`](docs/architecture-diagram-deployment.md) for the full topology.
+See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deployment.md)` for the full topology.
 
 ---
 
+
+
 ## Live demo
 
-| Resource | Link |
-|----------|------|
+
+| Resource              | Link                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **GitHub repository** | [Vinayak150/sherlock-interview-integrity-system](https://github.com/Vinayak150/sherlock-interview-integrity-system) |
-| **Architecture RFC** | [`docs/architecture.md`](docs/architecture.md) |
-| **Dashboard (local)** | `npm run dev --workspace=@sherlock/dashboard` → open `http://localhost:5173` |
+| **Architecture RFC**  | `[docs/architecture.md](docs/architecture.md)`                                                                      |
+| **Dashboard (local)** | `npm run dev --workspace=@sherlock/dashboard` → open `http://localhost:5173`                                        |
+
 
 Deploy to Railway and set `VITE_ORCHESTRATOR_URL` to publish a hosted demo.
 
 ---
 
+
+
 ## Evaluation & CI
 
-| Suite | Purpose |
-|-------|---------|
-| Unit tests | ~700 tests across workspaces |
-| Integration tests | Optional Postgres and Redis suites |
-| Chaos tests | Signal-health and log-LR clamp (M14) |
+
+| Suite                | Purpose                                        |
+| -------------------- | ---------------------------------------------- |
+| Unit tests           | ~700 tests across workspaces                   |
+| Integration tests    | Optional Postgres and Redis suites             |
+| Chaos tests          | Signal-health and log-LR clamp (M14)           |
 | Replay / calibration | Offline eval in `orchestrator/src/eval/` (M15) |
 
-CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — lint, typecheck, test, build, Docker on every push/PR.
+
+CI: `[.github/workflows/ci.yml](.github/workflows/ci.yml)` — lint, typecheck, test, build, Docker on every push/PR.
 
 ```bash
 make ci
@@ -351,22 +411,28 @@ make ci
 
 ---
 
+
+
 ## Known limitations
 
 Pilot-scope gaps (not missing milestones):
 
-| Area | Limitation |
-|------|------------|
-| ML models | Stub embeddings and liveness — no production GPU models |
-| LLM narrative | `StubLlmProvider` only |
-| Authentication | HTTP endpoints unauthenticated |
-| Compliance stores | Audit log and appeals in-memory |
-| ATS integration | `InMemoryAtsClient` only |
-| Multi-replica | `SessionRouter` not wired at ingress |
-| Dashboard API | Full Evidence Report not exposed via HTTP — partial display from SSE |
-| Client agent | Clipboard capture not shipped |
+
+| Area              | Limitation                                                           |
+| ----------------- | -------------------------------------------------------------------- |
+| ML models         | Stub embeddings and liveness — no production GPU models              |
+| LLM narrative     | `StubLlmProvider` only                                               |
+| Authentication    | HTTP endpoints unauthenticated                                       |
+| Compliance stores | Audit log and appeals in-memory                                      |
+| ATS integration   | `InMemoryAtsClient` only                                             |
+| Multi-replica     | `SessionRouter` not wired at ingress                                 |
+| Dashboard API     | Full Evidence Report not exposed via HTTP — partial display from SSE |
+| Client agent      | Clipboard capture not shipped                                        |
+
 
 ---
+
+
 
 ## Future improvements
 
@@ -381,11 +447,15 @@ Production hardening deferred per ADR-14:
 
 ---
 
+
+
 ## License
 
 This project is provided for portfolio and technical evaluation purposes. See [LICENSE](LICENSE) if present in the repository; otherwise contact the repository owner for licensing terms.
 
 ---
+
+
 
 ## Acknowledgements
 
@@ -396,12 +466,17 @@ This project is provided for portfolio and technical evaluation purposes. See [L
 
 ---
 
+
+
 ## References
 
-| Document | Description |
-|----------|-------------|
-| [`docs/architecture.md`](docs/architecture.md) | Architecture RFC |
-| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Implementation Plan |
-| [`docs/architecture-diagram.md`](docs/architecture-diagram.md) | Diagram index |
-| [`docs/architecture-diagram-deployment.md`](docs/architecture-diagram-deployment.md) | Railway deployment |
-| [`docs/images/README.md`](docs/images/README.md) | Screenshot regeneration |
+
+| Document                                                                             | Description             |
+| ------------------------------------------------------------------------------------ | ----------------------- |
+| `[docs/architecture.md](docs/architecture.md)`                                       | Architecture RFC        |
+| `[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)`                         | Implementation Plan     |
+| `[docs/architecture-diagram.md](docs/architecture-diagram.md)`                       | Diagram index           |
+| `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deployment.md)` | Railway deployment      |
+| `[docs/images/README.md](docs/images/README.md)`                                     | Screenshot regeneration |
+
+
