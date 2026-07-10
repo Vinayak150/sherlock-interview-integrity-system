@@ -24,10 +24,7 @@ class ModelServingConfig(BaseSettings):
 
     # Railway provides PORT automatically. Fall back to
     # MODEL_SERVING_HTTP_PORT for local/dev, then 8081.
-    http_port: int = int(
-        os.getenv("PORT")
-        or os.getenv("MODEL_SERVING_HTTP_PORT", "8081")
-    )
+    http_port: int = int(os.getenv("PORT") or os.getenv("MODEL_SERVING_HTTP_PORT", "8081"))
 
     http_host: str = "0.0.0.0"
 
