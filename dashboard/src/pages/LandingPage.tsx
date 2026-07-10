@@ -15,7 +15,13 @@ import {
 
 import { useTheme } from '../hooks/useTheme.js';
 import { Button } from '../components/ui/button.js';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.js';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card.js';
 
 const GITHUB_URL =
   (import.meta.env.VITE_GITHUB_URL as string | undefined) ??
@@ -206,7 +212,9 @@ export function LandingPage({
       <section className="mx-auto max-w-6xl px-4 py-16 lg:px-8">
         <div className="mb-8">
           <h2 className="text-2xl font-semibold">Technology</h2>
-          <p className="mt-2 text-muted-foreground">Modern stack for orchestration, inference, and review.</p>
+          <p className="mt-2 text-muted-foreground">
+            Modern stack for orchestration, inference, and review.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {TECH_STACK.map((tech) => (

@@ -12,17 +12,13 @@ Sherlock hero
 
 > Real-time AI-powered interview integrity analysis using Bayesian evidence fusion, lifecycle state machines, explainable decision making, and human-in-the-loop review.
 
-
 |                |                                                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Status**     | ✅ Complete — milestones M0 through M16                                                                                         |
+| **Status**     | ✅ Complete — milestones M0 through M16                                                                                        |
 | **Scope**      | Pilot implementation with intentional stub integrations                                                                        |
 | **Repository** | [github.com/Vinayak150/sherlock-interview-integrity-system](https://github.com/Vinayak150/sherlock-interview-integrity-system) |
 
-
 ---
-
-
 
 ## Table of contents
 
@@ -46,8 +42,6 @@ Sherlock hero
 
 ---
 
-
-
 ## Overview
 
 Sherlock continuously evaluates whether the live interview participant matches the applicant of record. Evidence from multiple weak signals is fused into a Bayesian belief, routed through an eight-state lifecycle machine, and surfaced to human reviewers with deterministic explanations.
@@ -61,11 +55,7 @@ Authoritative specifications:
 
 ---
 
-
-
 ## Features
-
-
 
 ### Core pipeline
 
@@ -75,16 +65,12 @@ Authoritative specifications:
 - **Decision engine** — abstention, tie-breaking, alerts, reviewer recommendations
 - **Explanation engine** — deterministic Evidence Reports; optional LLM narrative (stub)
 
-
-
 ### Product surfaces
 
 - **Landing page** — enterprise marketing shell with architecture overview
 - **Reviewer dashboard** — session search, live SSE updates, override, accommodation disclosure
 - **Aggregate analytics** — unknown rate, lifecycle distribution, review queue (Recharts)
 - **Dark mode** — system preference detection with persistent toggle
-
-
 
 ### Infrastructure
 
@@ -95,24 +81,17 @@ Authoritative specifications:
 
 ---
 
-
-
 ## Screenshots
-
-
 
 ### Landing page
 
 Landing page
 <img width="2638" height="1432" alt="image" src="https://github.com/user-attachments/assets/d67fee03-5142-46a6-82ec-8db7479201bd" />
 
-
 ### Dashboard overview
 
 Dashboard
 <img width="2704" height="1428" alt="image" src="https://github.com/user-attachments/assets/7841823b-0583-426c-9a8b-1fcdab35cb81" />
-
-
 
 ### Reviewer workspace
 
@@ -129,8 +108,6 @@ Dark mode
 Regenerate screenshots: `cd dashboard && npm run screenshots` — see `[docs/images/README.md](docs/images/README.md)`.
 
 ---
-
-
 
 ## System architecture
 
@@ -177,12 +154,7 @@ flowchart LR
   API --> REV
 ```
 
-
-
-
-
 ### Additional diagrams
-
 
 | Diagram                                                       | Description                                                   |
 | ------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -191,10 +163,7 @@ flowchart LR
 | [Repository layout](docs/architecture-diagram-repository.md)  | Monorepo packages and orchestrator modules                    |
 | [Diagram index](docs/architecture-diagram.md)                 | Full index with Pilot notes                                   |
 
-
 ---
-
-
 
 ## Deployment architecture
 
@@ -220,16 +189,11 @@ flowchart TB
   DASH -->|HTTP + SSE| ORCH
 ```
 
-
-
 See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deployment.md)` for environment variables and data flow.
 
 ---
 
-
-
 ## Repository structure
-
 
 | Package          | Responsibility                                                                 |
 | ---------------- | ------------------------------------------------------------------------------ |
@@ -238,7 +202,6 @@ See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deploym
 | `model-serving/` | Python inference — embeddings and liveness via FastAPI (Pilot stubs)           |
 | `dashboard/`     | React reviewer UI — landing page, workspace, aggregate analytics               |
 | `client-agent/`  | Browser extension — consented device/OS timing events                          |
-
 
 ```
 .
@@ -264,10 +227,7 @@ See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deploym
 
 ---
 
-
-
 ## Technology stack
-
 
 | Technology      | Role                                             |
 | --------------- | ------------------------------------------------ |
@@ -285,10 +245,7 @@ See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deploym
 | Zod             | Runtime schema validation                        |
 | Railway         | Cloud deployment target                          |
 
-
 ---
-
-
 
 ## Quick start
 
@@ -301,8 +258,6 @@ make ci
 ```
 
 ---
-
-
 
 ## Local development
 
@@ -319,19 +274,15 @@ cd model-serving && pip install -e ".[dev]" && python -m model_serving.main
 npm run dev --workspace=@sherlock/dashboard
 ```
 
-
 | Service       | Port   |
 | ------------- | ------ |
 | Orchestrator  | `8080` |
 | Model Serving | `8081` |
 | Dashboard     | `5173` |
 
-
 Set `VITE_ORCHESTRATOR_URL=http://localhost:8080` when building the dashboard for a remote orchestrator.
 
 ---
-
-
 
 ## Docker deployment
 
@@ -345,8 +296,6 @@ make docker-down
 
 ---
 
-
-
 ## Railway deployment
 
 Deploy as separate Railway services:
@@ -359,16 +308,12 @@ Deploy as separate Railway services:
 4. Railway injects `PORT` — the orchestrator reads it automatically.
 5. Set `MODEL_SERVING_URL` to the inference service URL.
 
-
-
 ### Dashboard
 
 1. Create a static or Node service from `dashboard/`.
 2. Build command: `npm run build --workspace=@sherlock/dashboard`
 3. Start command: `npm run start --workspace=@sherlock/dashboard`
 4. Set `VITE_ORCHESTRATOR_URL` at **build time** to the orchestrator public URL.
-
-
 
 ### Model serving
 
@@ -379,10 +324,7 @@ See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deploym
 
 ---
 
-
-
 ## Live demo
-
 
 | Resource              | Link                                                                                                                |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -390,15 +332,11 @@ See `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deploym
 | **Architecture RFC**  | `[docs/architecture.md](docs/architecture.md)`                                                                      |
 | **Dashboard (local)** | `npm run dev --workspace=@sherlock/dashboard` → open `http://localhost:5173`                                        |
 
-
 Deploy to Railway and set `VITE_ORCHESTRATOR_URL` to publish a hosted demo.
 
 ---
 
-
-
 ## Evaluation & CI
-
 
 | Suite                | Purpose                                        |
 | -------------------- | ---------------------------------------------- |
@@ -406,7 +344,6 @@ Deploy to Railway and set `VITE_ORCHESTRATOR_URL` to publish a hosted demo.
 | Integration tests    | Optional Postgres and Redis suites             |
 | Chaos tests          | Signal-health and log-LR clamp (M14)           |
 | Replay / calibration | Offline eval in `orchestrator/src/eval/` (M15) |
-
 
 CI: `[.github/workflows/ci.yml](.github/workflows/ci.yml)` — lint, typecheck, test, build, Docker on every push/PR.
 
@@ -416,12 +353,9 @@ make ci
 
 ---
 
-
-
 ## Known limitations
 
 Pilot-scope gaps (not missing milestones):
-
 
 | Area              | Limitation                                                           |
 | ----------------- | -------------------------------------------------------------------- |
@@ -434,10 +368,7 @@ Pilot-scope gaps (not missing milestones):
 | Dashboard API     | Full Evidence Report not exposed via HTTP — partial display from SSE |
 | Client agent      | Clipboard capture not shipped                                        |
 
-
 ---
-
-
 
 ## Future improvements
 
@@ -452,15 +383,11 @@ Production hardening deferred per ADR-14:
 
 ---
 
-
-
 ## License
 
 This project is provided for portfolio and technical evaluation purposes. See [LICENSE](LICENSE) if present in the repository; otherwise contact the repository owner for licensing terms.
 
 ---
-
-
 
 ## Acknowledgements
 
@@ -471,10 +398,7 @@ This project is provided for portfolio and technical evaluation purposes. See [L
 
 ---
 
-
-
 ## References
-
 
 | Document                                                                             | Description             |
 | ------------------------------------------------------------------------------------ | ----------------------- |
@@ -483,5 +407,3 @@ This project is provided for portfolio and technical evaluation purposes. See [L
 | `[docs/architecture-diagram.md](docs/architecture-diagram.md)`                       | Diagram index           |
 | `[docs/architecture-diagram-deployment.md](docs/architecture-diagram-deployment.md)` | Railway deployment      |
 | `[docs/images/README.md](docs/images/README.md)`                                     | Screenshot regeneration |
-
-

@@ -323,7 +323,10 @@ export class SessionOrchestrationService {
   private async withSessionLock<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
     const previous = this.sessionChains.get(sessionId) ?? Promise.resolve();
     const next = previous.then(work, work);
-    this.sessionChains.set(sessionId, next.catch(() => undefined));
+    this.sessionChains.set(
+      sessionId,
+      next.catch(() => undefined),
+    );
     try {
       return await next;
     } finally {
@@ -353,9 +356,7 @@ export class SessionOrchestrationService {
 
       const persistedEvidence = await this.evidenceRepository.listAllBySession(sessionId);
       const contradiction =
-        explicitContradiction ??
-        extractContradictionSignal(events, persistedEvidence) ??
-        undefined;
+        explicitContradiction ?? extractContradictionSignal(events, persistedEvidence) ?? undefined;
       const posterior = this.fusionEngine.computePosterior(sessionId, persistedEvidence, now);
       const transition = await this.lifecycleStore.evaluate(
         sessionId,

@@ -29,7 +29,10 @@ export function CardTitle({
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>): React.JSX.Element {
   return (
-    <h3 className={cn('text-base font-semibold leading-none tracking-tight', className)} {...props} />
+    <h3
+      className={cn('text-base font-semibold leading-none tracking-tight', className)}
+      {...props}
+    />
   );
 }
 

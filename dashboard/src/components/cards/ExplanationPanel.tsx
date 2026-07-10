@@ -79,10 +79,12 @@ export function ExplanationPanel({
                   </span>
                 </p>
                 <p>
-                  Abstained: <span className="font-medium">{decision.abstained ? 'Yes' : 'No'}</span>
+                  Abstained:{' '}
+                  <span className="font-medium">{decision.abstained ? 'Yes' : 'No'}</span>
                 </p>
                 <p>
-                  Ambiguous: <span className="font-medium">{decision.ambiguous ? 'Yes' : 'No'}</span>
+                  Ambiguous:{' '}
+                  <span className="font-medium">{decision.ambiguous ? 'Yes' : 'No'}</span>
                 </p>
               </div>
             </section>
@@ -90,7 +92,9 @@ export function ExplanationPanel({
             <section>
               <h3 className="mb-2 text-sm font-semibold text-zinc-900">Contradictions</h3>
               {contradictions.length === 0 ? (
-                <p className="text-sm text-zinc-500">No unavailable-service contradictions listed.</p>
+                <p className="text-sm text-zinc-500">
+                  No unavailable-service contradictions listed.
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {contradictions.map((item) => (
@@ -143,7 +147,9 @@ export function AccommodationForm({
           aria-label="Accommodation disclosure reason"
           placeholder="Reason (e.g. interpreter present)"
           value={reason}
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) => onReasonChange(event.target.value)}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+            onReasonChange(event.target.value)
+          }
         />
         <button
           type="button"

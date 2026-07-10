@@ -31,8 +31,12 @@ export function ReviewerDashboard({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>('overview');
 
-  const { aggregate, loading: aggregateLoading, error: aggregateError, refresh } =
-    useAggregateStatus(apiClient);
+  const {
+    aggregate,
+    loading: aggregateLoading,
+    error: aggregateError,
+    refresh,
+  } = useAggregateStatus(apiClient);
   const { connectionState } = useDecisionStream(apiClient, activeSessionId);
   const { status: activeStatus } = useSessionStatus(apiClient, activeSessionId, 0);
   const { resolved, toggle } = useTheme();
@@ -68,18 +72,12 @@ export function ReviewerDashboard({
         />
 
         <main className="flex-1 space-y-8 px-4 py-8 lg:px-8">
-          {aggregateError !== null && (
-            <ErrorAlert message={aggregateError} onRetry={refresh} />
-          )}
+          {aggregateError !== null && <ErrorAlert message={aggregateError} onRetry={refresh} />}
 
           {(activeSection === 'overview' || activeSection === 'workspace') && (
             <>
               <StatisticsRow aggregate={aggregate} loading={aggregateLoading} />
-              <SearchBar
-                value={searchInput}
-                onChange={setSearchInput}
-                onSubmit={handleSearch}
-              />
+              <SearchBar value={searchInput} onChange={setSearchInput} onSubmit={handleSearch} />
             </>
           )}
 
@@ -93,7 +91,9 @@ export function ReviewerDashboard({
               <section className="space-y-4">
                 <div>
                   <h2 className="text-xl font-semibold">Aggregate preview</h2>
-                  <p className="text-sm text-muted-foreground">Replica-scoped metrics at a glance</p>
+                  <p className="text-sm text-muted-foreground">
+                    Replica-scoped metrics at a glance
+                  </p>
                 </div>
                 <AggregateDashboard aggregate={aggregate} loading={aggregateLoading} />
               </section>

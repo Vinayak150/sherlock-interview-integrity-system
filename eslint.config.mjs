@@ -56,10 +56,7 @@ export default [
     rules: {
       ...tseslint.configs.recommended.rules,
       'no-undef': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_' },
-      ],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': 'off',
     },

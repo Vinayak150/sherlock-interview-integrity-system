@@ -36,18 +36,18 @@ flowchart TB
 
 ## Environment variables (orchestrator)
 
-| Variable | Purpose |
-|----------|---------|
-| `PORT` | Railway-assigned HTTP port (preferred over `ORCHESTRATOR_HTTP_PORT`) |
-| `POSTGRES_*` | Evidence Store connection |
-| `REDIS_URL` | Session registry |
-| `MODEL_SERVING_URL` | Inference service base URL |
+| Variable            | Purpose                                                              |
+| ------------------- | -------------------------------------------------------------------- |
+| `PORT`              | Railway-assigned HTTP port (preferred over `ORCHESTRATOR_HTTP_PORT`) |
+| `POSTGRES_*`        | Evidence Store connection                                            |
+| `REDIS_URL`         | Session registry                                                     |
+| `MODEL_SERVING_URL` | Inference service base URL                                           |
 
 ## Environment variables (dashboard)
 
-| Variable | Purpose |
-|----------|---------|
+| Variable                | Purpose                             |
+| ----------------------- | ----------------------------------- |
 | `VITE_ORCHESTRATOR_URL` | Orchestrator base URL at build time |
-| `PORT` | Railway static server port |
+| `PORT`                  | Railway static server port          |
 
 See [README § Railway Deployment](../README.md#railway-deployment) for setup steps.

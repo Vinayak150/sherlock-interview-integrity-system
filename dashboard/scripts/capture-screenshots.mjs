@@ -39,7 +39,10 @@ try {
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(outputDir, 'landing-page.png'), fullPage: true });
 
-  await page.getByRole('button', { name: /launch dashboard/i }).first().click();
+  await page
+    .getByRole('button', { name: /launch dashboard/i })
+    .first()
+    .click();
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(outputDir, 'dashboard.png'), fullPage: true });
 

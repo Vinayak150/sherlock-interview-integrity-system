@@ -127,13 +127,11 @@ export function parseStreamDecision(value: unknown): StreamDecision | null {
 
   const contributionsRaw = posteriorRaw.bundleContributions;
   const bundleContributions = Array.isArray(contributionsRaw)
-    ? contributionsRaw
-        .filter(isRecord)
-        .map((item) => ({
-          bundle: readString(item.bundle, 'unknown'),
-          logOddsContribution: readNumber(item.logOddsContribution),
-          eligibleEventCount: readNumber(item.eligibleEventCount),
-        }))
+    ? contributionsRaw.filter(isRecord).map((item) => ({
+        bundle: readString(item.bundle, 'unknown'),
+        logOddsContribution: readNumber(item.logOddsContribution),
+        eligibleEventCount: readNumber(item.eligibleEventCount),
+      }))
     : [];
 
   const alertRaw = value.alert;
@@ -189,9 +187,7 @@ export function parseStreamDecision(value: unknown): StreamDecision | null {
   };
 }
 
-export function buildTimeline(
-  decisions: readonly StreamDecision[],
-): readonly TimelineEvent[] {
+export function buildTimeline(decisions: readonly StreamDecision[]): readonly TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   for (let index = 0; index < decisions.length; index += 1) {
@@ -226,9 +222,10 @@ export function buildTimeline(
         type: 'lifecycle_changed',
         timestamp: decision.decidedAt,
         title: 'Lifecycle changed',
-        description: previous === undefined
-          ? `Entered ${decision.lifecycleState.replaceAll('_', ' ')}`
-          : `${previous.lifecycleState.replaceAll('_', ' ')} → ${decision.lifecycleState.replaceAll('_', ' ')}`,
+        description:
+          previous === undefined
+            ? `Entered ${decision.lifecycleState.replaceAll('_', ' ')}`
+            : `${previous.lifecycleState.replaceAll('_', ' ')} → ${decision.lifecycleState.replaceAll('_', ' ')}`,
       });
     }
 
@@ -251,9 +248,7 @@ export function buildTimeline(
     }
   }
 
-  return events.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
+  return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 export interface EvidenceBundleSummary {
@@ -317,11 +312,13 @@ export function summarizeEvidenceBundles(
 
     const lastUpdate =
       events.length > 0
-        ? events.reduce((latest, event) =>
-            new Date(event.occurredAt).getTime() > new Date(latest).getTime()
-              ? event.occurredAt
-              : latest,
-          events[0]?.occurredAt ?? '')
+        ? events.reduce(
+            (latest, event) =>
+              new Date(event.occurredAt).getTime() > new Date(latest).getTime()
+                ? event.occurredAt
+                : latest,
+            events[0]?.occurredAt ?? '',
+          )
         : null;
 
     return {

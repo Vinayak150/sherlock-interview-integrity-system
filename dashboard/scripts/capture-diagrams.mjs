@@ -11,15 +11,25 @@ const DIAGRAMS = [
   {
     file: 'architecture.png',
     title: 'System Architecture',
-    mermaid: await readFile(path.join(repoRoot, 'docs', 'architecture-diagram-overall.md'), 'utf8').then(
-      (content) => content.match(/```mermaid\n([\s\S]*?)```/)?.[1] ?? 'flowchart LR\n  A[Orchestrator] --> B[Dashboard]',
+    mermaid: await readFile(
+      path.join(repoRoot, 'docs', 'architecture-diagram-overall.md'),
+      'utf8',
+    ).then(
+      (content) =>
+        content.match(/```mermaid\n([\s\S]*?)```/)?.[1] ??
+        'flowchart LR\n  A[Orchestrator] --> B[Dashboard]',
     ),
   },
   {
     file: 'deployment.png',
     title: 'Deployment Architecture',
-    mermaid: await readFile(path.join(repoRoot, 'docs', 'architecture-diagram-deployment.md'), 'utf8').then(
-      (content) => content.match(/```mermaid\n([\s\S]*?)```/)?.[1] ?? 'flowchart TB\n  GH[GitHub] --> RD[Railway]',
+    mermaid: await readFile(
+      path.join(repoRoot, 'docs', 'architecture-diagram-deployment.md'),
+      'utf8',
+    ).then(
+      (content) =>
+        content.match(/```mermaid\n([\s\S]*?)```/)?.[1] ??
+        'flowchart TB\n  GH[GitHub] --> RD[Railway]',
     ),
   },
 ];
@@ -29,7 +39,8 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
 for (const diagram of DIAGRAMS) {
-  await page.setContent(`<!doctype html>
+  await page.setContent(
+    `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -47,7 +58,9 @@ for (const diagram of DIAGRAMS) {
     </div>
     <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
   </body>
-</html>`, { waitUntil: 'networkidle' });
+</html>`,
+    { waitUntil: 'networkidle' },
+  );
   await page.waitForTimeout(1500);
   await page.screenshot({ path: path.join(outputDir, diagram.file), fullPage: true });
 }

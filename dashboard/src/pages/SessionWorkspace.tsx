@@ -1,10 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import type { DashboardApiClient } from '../apiClient.js';
-import {
-  AccommodationForm,
-  ExplanationPanel,
-} from '../components/cards/ExplanationPanel.js';
+import { AccommodationForm, ExplanationPanel } from '../components/cards/ExplanationPanel.js';
 import { DecisionPanel } from '../components/cards/DecisionPanel.js';
 import { EvidenceSummary, SessionPanel } from '../components/cards/SessionPanel.js';
 import { EmptyState } from '../components/EmptyState.js';
@@ -12,10 +9,7 @@ import { ErrorAlert } from '../components/ui/alert.js';
 import { Timeline } from '../components/Timeline.js';
 import { useDecisionStream } from '../hooks/useDecisionStream.js';
 import { useSessionStatus } from '../hooks/useSessionStatus.js';
-import {
-  buildTimeline,
-  summarizeEvidenceBundles,
-} from '../lib/decisionData.js';
+import { buildTimeline, summarizeEvidenceBundles } from '../lib/decisionData.js';
 import type { LifecycleState } from '../liveBadgeLogic.js';
 
 export function SessionWorkspace({
@@ -102,7 +96,10 @@ export function SessionWorkspace({
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Timeline events={buildTimeline(decisionHistory)} loading={loading && decisionHistory.length === 0} />
+        <Timeline
+          events={buildTimeline(decisionHistory)}
+          loading={loading && decisionHistory.length === 0}
+        />
         <DecisionPanel
           decision={latestDecision}
           loading={loading && latestDecision === null}

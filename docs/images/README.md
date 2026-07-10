@@ -2,15 +2,15 @@
 
 Product screenshots for the README and portfolio.
 
-| File | Description |
-|------|-------------|
-| `landing-page.png` | Marketing landing page |
-| `dashboard.png` | Reviewer dashboard overview |
-| `reviewer-workspace.png` | Session workspace with panels |
-| `aggregate-dashboard.png` | Aggregate analytics charts |
-| `dark-mode.png` | Dashboard in dark theme |
-| `architecture.png` | System architecture (from Mermaid export) |
-| `deployment.png` | Railway deployment diagram |
+| File                      | Description                               |
+| ------------------------- | ----------------------------------------- |
+| `landing-page.png`        | Marketing landing page                    |
+| `dashboard.png`           | Reviewer dashboard overview               |
+| `reviewer-workspace.png`  | Session workspace with panels             |
+| `aggregate-dashboard.png` | Aggregate analytics charts                |
+| `dark-mode.png`           | Dashboard in dark theme                   |
+| `architecture.png`        | System architecture (from Mermaid export) |
+| `deployment.png`          | Railway deployment diagram                |
 
 ## Regenerate with Playwright
 

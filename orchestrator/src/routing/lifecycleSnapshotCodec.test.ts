@@ -62,7 +62,7 @@ describe('lifecycleSnapshotCodec', () => {
         state: 'NOT_A_REAL_STATE',
         stateEnteredAt: T0.toISOString(),
         recoveryAnnotations: [],
-      disqualificationAnnotations: [],
+        disqualificationAnnotations: [],
       }),
     ).toThrow(LifecycleSnapshotCodecError);
   });

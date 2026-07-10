@@ -1,11 +1,4 @@
-import {
-  AlertTriangle,
-  Brain,
-  FileText,
-  GitBranch,
-  Layers,
-  Sparkles,
-} from 'lucide-react';
+import { AlertTriangle, Brain, FileText, GitBranch, Layers, Sparkles } from 'lucide-react';
 
 import type { TimelineEvent, TimelineEventType } from '../lib/decisionData.js';
 import { formatTimestamp } from '../lib/utils.js';

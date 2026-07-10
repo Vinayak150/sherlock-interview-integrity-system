@@ -1,20 +1,9 @@
-import {
-  Activity,
-  FileSearch,
-  Inbox,
-  Radio,
-  SearchX,
-  type LucideIcon,
-} from 'lucide-react';
+import { Activity, FileSearch, Inbox, Radio, SearchX, type LucideIcon } from 'lucide-react';
 
 import { Card, CardContent } from './ui/card.js';
 import { cn } from '../lib/utils.js';
 
-export type EmptyStateVariant =
-  | 'no-session'
-  | 'no-evidence'
-  | 'waiting-activity'
-  | 'generic';
+export type EmptyStateVariant = 'no-session' | 'no-evidence' | 'waiting-activity' | 'generic';
 
 const VARIANTS: Record<
   EmptyStateVariant,

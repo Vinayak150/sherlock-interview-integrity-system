@@ -193,11 +193,7 @@ export class InMemoryEvidenceEventRepository implements EvidenceEventRepository 
 
     return this.events
       .filter((event) => event.sessionId === sessionId)
-      .sort(
-        (a, b) =>
-          a.occurredAt.getTime() - b.occurredAt.getTime() ||
-          a.id.localeCompare(b.id),
-      )
+      .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime() || a.id.localeCompare(b.id))
       .slice(offset, offset + limit);
   }
 

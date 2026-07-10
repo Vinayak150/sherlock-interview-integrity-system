@@ -192,7 +192,14 @@ export function AggregateDashboard({
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={lifecycleData}>
-                <XAxis dataKey="state" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={70} />
+                <XAxis
+                  dataKey="state"
+                  tick={{ fontSize: 11 }}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={70}
+                />
                 <YAxis allowDecimals={false} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#18181b" radius={[4, 4, 0, 0]} />

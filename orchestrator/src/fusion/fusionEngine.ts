@@ -88,8 +88,8 @@ export class FusionEngine {
     const bundleTotals = new Map<BundleName, { logOdds: number; eligibleEventCount: number }>();
     let totalAbsoluteWeight = 0;
 
-/** Bundles whose log-odds contribution is effectively zero must not count toward tier diversity (RFC §6 "multi-bundle evidence"). */
-const MEANINGFUL_CONTRIBUTION_EPSILON = 1e-12;
+    /** Bundles whose log-odds contribution is effectively zero must not count toward tier diversity (RFC §6 "multi-bundle evidence"). */
+    const MEANINGFUL_CONTRIBUTION_EPSILON = 1e-12;
 
     for (const event of eligible) {
       const rawLogLR = signalLogLikelihoodRatio(event);

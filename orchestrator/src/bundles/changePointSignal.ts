@@ -26,7 +26,10 @@ function isChangePointDetected(value: unknown): boolean {
 }
 
 function flaggedChangePointBundles(
-  events: readonly Pick<EvidenceEvent | NewEvidenceEvent, 'bundle' | 'signalName' | 'healthStatus' | 'value'>[],
+  events: readonly Pick<
+    EvidenceEvent | NewEvidenceEvent,
+    'bundle' | 'signalName' | 'healthStatus' | 'value'
+  >[],
 ): ReadonlySet<BundleName> {
   const bundles = new Set<BundleName>();
   for (const event of events) {

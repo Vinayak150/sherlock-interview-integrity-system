@@ -33,10 +33,7 @@ export function StatisticsRow({
         (aggregate.countsByState.LOST_CONFIDENCE ?? 0);
 
   return (
-    <section
-      aria-label="Statistics"
-      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-    >
+    <section aria-label="Statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
         title="Total Sessions"
         value={aggregate === null ? '—' : String(aggregate.totalSessions)}

@@ -134,9 +134,7 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
   language: Activity,
 };
 
-function healthVariant(
-  health: string,
-): 'success' | 'warning' | 'danger' | 'muted' {
+function healthVariant(health: string): 'success' | 'warning' | 'danger' | 'muted' {
   switch (health) {
     case 'OK':
       return 'success';
@@ -197,14 +195,11 @@ export function EvidenceSummary({
                   <p>
                     Confidence:{' '}
                     <span className="font-medium text-zinc-900">
-                      {summary.confidence === null
-                        ? '—'
-                        : formatPercent(summary.confidence)}
+                      {summary.confidence === null ? '—' : formatPercent(summary.confidence)}
                     </span>
                   </p>
                   <p>
-                    Events:{' '}
-                    <span className="font-medium text-zinc-900">{summary.eventCount}</span>
+                    Events: <span className="font-medium text-zinc-900">{summary.eventCount}</span>
                   </p>
                   <p>
                     Last update:{' '}
