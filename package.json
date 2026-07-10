@@ -9,10 +9,12 @@
   },
   "workspaces": [
     "contracts",
-    "orchestrator"
+    "orchestrator",
+    "client-agent",
+    "dashboard"
   ],
   "scripts": {
-    "build": "npm run build --workspace=@sherlock/contracts && npm run build --workspace=@sherlock/orchestrator",
+    "build": "npm run build --workspace=@sherlock/contracts && npm run build --workspace=@sherlock/orchestrator && npm run build --workspace=@sherlock/client-agent && npm run build --workspace=@sherlock/dashboard",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --check .",
     "format:write": "prettier --write .",

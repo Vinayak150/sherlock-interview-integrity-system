@@ -30,3 +30,10 @@ export {
   InMemorySessionSnapshotRepository,
   PostgresSessionSnapshotRepository,
 } from './sessionSnapshotRepository.js';
+
+export type {
+  AccommodationDisclosure,
+  AccommodationDisclosureRepository,
+  NewAccommodationDisclosure,
+} from './accommodationDisclosureRepository.js';
+export { InMemoryAccommodationDisclosureRepository } from './accommodationDisclosureRepository.js';

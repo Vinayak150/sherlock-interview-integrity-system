@@ -69,6 +69,11 @@ export function createDbPool(config: DatabaseConfig): DbPool {
     database: config.database,
     user: config.user,
     password: config.password,
+    // RFC §15/Pilot-readiness bar; Plan M16: encryption in transit. `rejectUnauthorized: false`
+    // matches the common managed-Postgres pattern (RDS, Cloud SQL) of a provider-issued
+    // certificate not chained through the local trust store; a real deployment with a
+    // fully-verifiable chain can tighten this further.
+    ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
   });
 
   const poolExecutor = toQueryExecutor(pool);

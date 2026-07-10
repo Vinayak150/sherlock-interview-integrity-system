@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Sherlock Interview Integrity Agent",
+  "version": "0.0.0",
+  "description": "Opt-in, clearly-disclosed capture of tab-focus, application-switch, clipboard-paste, and keyboard-rhythm *timing* metadata during a Sherlock-monitored interview session (RFC §9.5, ADR-9). Never captures keystroke content, never runs without explicit consent.",
+  "permissions": ["storage", "tabs", "clipboardRead"],
+  "host_permissions": [],
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Sherlock Interview Integrity Agent"
+  }
+}

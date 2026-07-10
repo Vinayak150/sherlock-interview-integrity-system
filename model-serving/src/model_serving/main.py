@@ -1,20 +1,21 @@
-"""Model-serving entrypoint -- M0 scaffold.
+"""Model-serving entrypoint.
 
-This deliberately does not stand up a serving API, load any embedding or
-classifier model, or expose an RPC endpoint: those are explicit non-goals
-for M0. Its only job is to prove the deployable starts, reads its
-environment, and logs correctly -- the foundation the M8 milestone builds
-real inference on top of.
+M0 proved the process starts, reads its environment, and logs correctly,
+with no inference modules loaded. M8 ("bring up the second deployable ...
+behind the RPC contract") is the first milestone that stands up the real
+serving API, behind stub extractors/detectors (see `embeddings/`,
+`liveness/`) -- no GPU pool or real model is loaded here; that is
+explicitly out of scope for this codebase (no models are trained/licensed
+as part of this exercise).
 """
 
 from __future__ import annotations
 
-import signal
-import threading
-from types import FrameType
+import uvicorn
 
 from model_serving.config import load_config
 from model_serving.logger import create_logger
+from model_serving.serving_api.app import create_app
 
 
 def main() -> None:
@@ -22,24 +23,18 @@ def main() -> None:
     logger = create_logger(config)
 
     logger.info(
-        "model-serving scaffold starting (M0 -- no inference modules loaded), "
-        f"service_name={config.service_name}"
+        f"model-serving starting, service_name={config.service_name}, "
+        f"http={config.http_host}:{config.http_port}"
+    )
+    logger.warning(
+        "serving stub embedding/liveness implementations only -- no real biometric model is "
+        "loaded (see embeddings/extractor.py, liveness/detector.py)"
     )
 
-    shutdown_event = threading.Event()
-
-    def handle_signal(signum: int, _frame: FrameType | None) -> None:
-        logger.info(f"model-serving scaffold shutting down, signal={signal.Signals(signum).name}")
-        shutdown_event.set()
-
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
-
-    # No serving API is stood up in M0 (that arrives at M8), so the process
-    # simply stays alive as a well-behaved container/service until asked to
-    # stop, rather than exiting immediately after its one startup log line.
-    while not shutdown_event.wait(timeout=30):
-        logger.debug("model-serving scaffold heartbeat")
+    app = create_app()
+    uvicorn.run(
+        app, host=config.http_host, port=config.http_port, log_level=config.log_level.lower()
+    )
 
 
 if __name__ == "__main__":

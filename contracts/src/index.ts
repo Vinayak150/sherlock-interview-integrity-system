@@ -14,14 +14,22 @@
  *   - `SessionStateSnapshot`: "a periodic checkpoint of a Session's derived
  *     state for fast crash recovery." (Plan §2, RFC §9.3)
  *
- * Deliberately NOT introduced yet (out of scope for M1, arrives with the
+ * Deliberately NOT introduced yet (out of scope for M1/M2, arrives with the
  * milestones that need them): the eight-state `LifecycleState` enum (M4),
- * the `EvidenceReport` shape (M6), and bundle-specific payload schemas
- * (M2/M9/M10/M11). `value`/`state` below are intentionally generic
- * (`unknown`, JSON-serializable) so the persistence layer does not have to
- * be revisited every time a later milestone adds a new signal or changes
- * the Fusion Engine's internal representation — the schema this package
- * owns is the *storage contract*, not the Fusion Engine's internal math.
+ * the `EvidenceReport` shape (M6), and the visual/audio/linguistic/device/
+ * elicitation/meta/cross-session bundle payload schemas (M9/M10/M11).
+ * `EvidenceEvent.value` itself stays generic (`unknown`, JSON-serializable)
+ * so the persistence layer (M1) never has to be revisited when a bundle's
+ * payload shape changes — the schemas below are additive, describing what a
+ * *conforming* claim/metadata payload looks like, not a persistence-layer
+ * constraint.
+ *
+ * M2 scope (`docs/IMPLEMENTATION_PLAN.md`, Milestone M2 — "Claim & Metadata
+ * bundle adapters + cold-start FSM") adds the payload schemas for the two
+ * bundle families that milestone's adapters emit: Claim (RFC §4-A) and
+ * Metadata (RFC §4-B). Both are zero-ML, deterministic comparisons — no
+ * embeddings, no classifiers — consistent with that milestone's "first
+ * vertical slice with zero ML dependency" objective.
  */
 import { z } from 'zod';
 
@@ -125,3 +133,256 @@ export const SessionStateSnapshotSchema = NewSessionStateSnapshotSchema.extend({
 });
 
 export type SessionStateSnapshot = z.infer<typeof SessionStateSnapshotSchema>;
+
+/**
+ * Claim bundle (RFC §4-A) — pre-call identity-claim signals. All three are
+ * framed by the RFC as identity *claims*, not proof (§3): "near-zero cost
+ * to falsify," individually weak, useful only in combination with every
+ * other bundle (§5). Presence-only signals (a reference photo/ID artifact/
+ * account-history record existing on file at all) are a separate signal
+ * shape from the three that compare an *observed* value against the
+ * *claimed* one.
+ */
+export const CLAIM_SIGNAL_NAMES = [
+  'display_name_match',
+  'email_domain_match',
+  'calendar_invite_match',
+  'reference_photo_available',
+  'prior_id_verification_available',
+  'account_history_available',
+] as const;
+
+export const ClaimSignalNameSchema = z.enum(CLAIM_SIGNAL_NAMES);
+
+export type ClaimSignalName = z.infer<typeof ClaimSignalNameSchema>;
+
+/**
+ * `EvidenceEvent.value` shape for `display_name_match` / `email_domain_match`
+ * / `calendar_invite_match`. `observedValue`/`claimedValue` are carried
+ * alongside the boolean so the Explanation Engine (§8, M6) can later cite
+ * *what* was compared, not just the outcome — the RFC requires every
+ * Evidence Report to show its work, not just a verdict.
+ */
+export const ClaimMatchValueSchema = z.object({
+  matched: z.boolean(),
+  observedValue: z.string().trim().min(1).nullable(),
+  claimedValue: z.string().trim().min(1).nullable(),
+});
+
+export type ClaimMatchValue = z.infer<typeof ClaimMatchValueSchema>;
+
+/**
+ * `EvidenceEvent.value` shape for the three claim signals that are presence
+ * checks rather than comparisons (RFC §4-A: reference photo, prior
+ * ID-verification artifact, account/device history — each either exists on
+ * file or it doesn't).
+ */
+export const ClaimPresenceValueSchema = z.object({
+  available: z.boolean(),
+  reference: z.string().trim().min(1).nullable(),
+});
+
+export type ClaimPresenceValue = z.infer<typeof ClaimPresenceValueSchema>;
+
+/**
+ * Metadata bundle (RFC §4-B) — session/platform metadata signals. Every one
+ * of these is explicitly ranked "weak" or "informational, not automatically
+ * negative" in the RFC's own signal table (§4) — this bundle is Tier 2
+ * (supportive, §13), never a standalone trigger.
+ */
+export const METADATA_SIGNAL_NAMES = [
+  'join_method',
+  'ip_geolocation_consistency',
+  'device_fingerprint_continuity',
+  'virtual_capture_device_detected',
+  'screen_share_state',
+  'multi_monitor_detected',
+] as const;
+
+export const MetadataSignalNameSchema = z.enum(METADATA_SIGNAL_NAMES);
+
+export type MetadataSignalName = z.infer<typeof MetadataSignalNameSchema>;
+
+/**
+ * RFC §4-B: "Join order and method (correct invite link vs. forwarded)."
+ * `joinOrder` is the participant's ordinal position among this session's
+ * joiners; `null` when it could not be determined.
+ */
+export const JOIN_METHODS = ['direct_invite_link', 'forwarded_link', 'unknown'] as const;
+
+export const JoinMethodSchema = z.enum(JOIN_METHODS);
+
+export type JoinMethod = z.infer<typeof JoinMethodSchema>;
+
+export const JoinMethodValueSchema = z.object({
+  method: JoinMethodSchema,
+  joinOrder: z.number().int().nonnegative().nullable(),
+});
+
+export type JoinMethodValue = z.infer<typeof JoinMethodValueSchema>;
+
+/**
+ * Reused for the two §4-B signals that compare an observed value against a
+ * stated/prior one, both explicitly called out as weak: IP geolocation vs.
+ * stated location ("VPNs are common"), and device/browser fingerprint
+ * continuity across sessions. `consistent` is `null` — not `false` — when
+ * there is nothing on record to compare against (RFC §7: absence of
+ * evidence must never be coerced into evidence of absence).
+ */
+export const MetadataConsistencyValueSchema = z.object({
+  consistent: z.boolean().nullable(),
+  observedValue: z.string().trim().min(1).nullable(),
+  statedValue: z.string().trim().min(1).nullable(),
+});
+
+export type MetadataConsistencyValue = z.infer<typeof MetadataConsistencyValueSchema>;
+
+/**
+ * Reused for the two §4-B signals that are simple boolean detections:
+ * virtual camera/microphone driver detection, multi-monitor detection.
+ */
+export const MetadataDetectionValueSchema = z.object({
+  detected: z.boolean(),
+});
+
+export type MetadataDetectionValue = z.infer<typeof MetadataDetectionValueSchema>;
+
+/** RFC §4-B: "screen-share state" — informational, not itself a match/mismatch. */
+export const SCREEN_SHARE_STATES = [
+  'not_sharing',
+  'sharing_screen',
+  'sharing_application',
+] as const;
+
+export const ScreenShareStateSchema = z.enum(SCREEN_SHARE_STATES);
+
+export type ScreenShareState = z.infer<typeof ScreenShareStateSchema>;
+
+export const ScreenShareStateValueSchema = z.object({
+  state: ScreenShareStateSchema,
+});
+
+export type ScreenShareStateValue = z.infer<typeof ScreenShareStateValueSchema>;
+
+/**
+ * Visual bundle (RFC §4-C) — face-embedding self-consistency ("strong,
+ * reference-independent"), visual liveness/anti-spoof, and the
+ * change-point signal RFC §5's CUSUM layer produces on this bundle's
+ * embedding stream (Plan M9).
+ */
+export const VISUAL_SIGNAL_NAMES = [
+  'face_embedding_self_consistency',
+  'visual_liveness',
+  'face_embedding_change_point',
+] as const;
+
+export const VisualSignalNameSchema = z.enum(VISUAL_SIGNAL_NAMES);
+
+export type VisualSignalName = z.infer<typeof VisualSignalNameSchema>;
+
+/** Shared by `face_embedding_self_consistency` and (via `AudioSelfConsistencyValueSchema`) the audio analog: `similarity` is `null` on the very first observation for a session, when there is no running reference yet to compare against (RFC §7 absence-of-evidence). */
+export const EmbeddingSelfConsistencyValueSchema = z.object({
+  similarity: z.number().min(-1).max(1).nullable(),
+  isFirstObservation: z.boolean(),
+});
+
+export type EmbeddingSelfConsistencyValue = z.infer<typeof EmbeddingSelfConsistencyValueSchema>;
+
+export const VisualLivenessValueSchema = z.object({
+  score: z.number().min(0).max(1),
+  isLive: z.boolean(),
+});
+
+export type VisualLivenessValue = z.infer<typeof VisualLivenessValueSchema>;
+
+/** RFC §5's CUSUM/change-point layer output, attached to the bundle whose embedding stream it monitors (ADR-5: never decays in the ledger once flagged). */
+export const ChangePointValueSchema = z.object({
+  detected: z.boolean(),
+  cumulativeDeviation: z.number().nonnegative(),
+});
+
+export type ChangePointValue = z.infer<typeof ChangePointValueSchema>;
+
+/** Audio bundle (RFC §4-D) — voice-embedding self-consistency, the audio analog of the visual bundle's. */
+export const AUDIO_SIGNAL_NAMES = [
+  'voice_embedding_self_consistency',
+  'voice_embedding_change_point',
+] as const;
+
+export const AudioSignalNameSchema = z.enum(AUDIO_SIGNAL_NAMES);
+
+export type AudioSignalName = z.infer<typeof AudioSignalNameSchema>;
+
+/**
+ * Device/OS bundle (RFC §4-F, Bundle F) — client-agent-derived behavioral
+ * signals (Plan M10). ADR-16: weighted near-zero for identity, kept on a
+ * structurally separate track; never folded into the identity score.
+ */
+export const DEVICE_SIGNAL_NAMES = [
+  'tab_focus_change',
+  'application_switch',
+  'clipboard_paste',
+  'keyboard_rhythm_anomaly',
+] as const;
+
+export const DeviceSignalNameSchema = z.enum(DEVICE_SIGNAL_NAMES);
+
+export type DeviceSignalName = z.infer<typeof DeviceSignalNameSchema>;
+
+/** Generic counted-event-in-window shape shared by every Device/OS signal (RFC §9.5: "clipboard, active-tab/app-focus, keyboard-timing metadata, not keystroke *content*"). */
+export const DeviceEventCountValueSchema = z.object({
+  count: z.number().int().nonnegative(),
+  windowMs: z.number().int().positive(),
+});
+
+export type DeviceEventCountValue = z.infer<typeof DeviceEventCountValueSchema>;
+
+/**
+ * Linguistic bundle (RFC §4-E) — "identity-consistency only... self-
+ * consistency of biographical claims against the filed application."
+ * Explicitly excludes answer quality/competence signals (scope boundary,
+ * correction #4).
+ */
+export const LINGUISTIC_SIGNAL_NAMES = ['biographical_claim_consistency'] as const;
+
+export const LinguisticSignalNameSchema = z.enum(LINGUISTIC_SIGNAL_NAMES);
+
+export type LinguisticSignalName = z.infer<typeof LinguisticSignalNameSchema>;
+
+export const BiographicalClaimConsistencyValueSchema = z.object({
+  consistent: z.boolean().nullable(),
+  claimTopic: z.string().trim().min(1),
+});
+
+export type BiographicalClaimConsistencyValue = z.infer<
+  typeof BiographicalClaimConsistencyValueSchema
+>;
+
+/**
+ * Active-elicitation bundle (RFC §4-G) — "Interviewer-delivered,
+ * system-suggested prompts triggered specifically at borderline
+ * confidence... a spontaneous unscripted statement, a brief camera
+ * reposition, repeating a freshly-generated phrase." (Plan M11)
+ */
+export const ELICITATION_SIGNAL_NAMES = ['active_elicitation_response'] as const;
+
+export const ElicitationSignalNameSchema = z.enum(ELICITATION_SIGNAL_NAMES);
+
+export type ElicitationSignalName = z.infer<typeof ElicitationSignalNameSchema>;
+
+export const ELICITATION_CHALLENGE_TYPES = [
+  'unscripted_statement',
+  'camera_reposition',
+  'repeat_phrase',
+] as const;
+
+export const ElicitationChallengeTypeSchema = z.enum(ELICITATION_CHALLENGE_TYPES);
+
+export type ElicitationChallengeType = z.infer<typeof ElicitationChallengeTypeSchema>;
+
+export const ElicitationResponseValueSchema = z.object({
+  challengeType: ElicitationChallengeTypeSchema,
+  satisfied: z.boolean().nullable(),
+});
+
+export type ElicitationResponseValue = z.infer<typeof ElicitationResponseValueSchema>;

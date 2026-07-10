@@ -41,6 +41,25 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:-sherlock}
+      POSTGRES_USER: ${POSTGRES_USER:-sherlock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sherlock_dev_password}
+    command: ['npm', 'run', 'migrate', '--workspace=@sherlock/orchestrator']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
   orchestrator:
     build:
       context: .
@@ -59,11 +78,21 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-sherlock}
       POSTGRES_USER: ${POSTGRES_USER:-sherlock}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sherlock_dev_password}
+      REDIS_URL: redis://redis:6379
+      MODEL_SERVING_URL: http://model-serving:8081
+      ORCHESTRATOR_HTTP_PORT: '8080'
+      ORCHESTRATOR_HTTP_HOST: '0.0.0.0'
+    ports:
+      - '${ORCHESTRATOR_HTTP_PORT:-8080}:8080'
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      model-serving:
+        condition: service_started
 
   model-serving:
     build:
@@ -75,6 +104,10 @@ services:
         required: false
     environment:
       MODEL_SERVING_LOG_LEVEL: ${MODEL_SERVING_LOG_LEVEL:-info}
+      MODEL_SERVING_HTTP_PORT: '8081'
+      MODEL_SERVING_HTTP_HOST: '0.0.0.0'
+    ports:
+      - '${MODEL_SERVING_HTTP_PORT:-8081}:8081'
 
 volumes:
   postgres-data:

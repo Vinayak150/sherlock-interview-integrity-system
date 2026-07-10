@@ -22,12 +22,13 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
         project: false,
         sourceType: 'module',
+        ecmaFeatures: { jsx: true },
       },
       globals: {
         ...globals.node,
@@ -46,6 +47,16 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': 'off',
+    },
+  },
+  {
+    // dashboard/ is the one browser-runtime workspace -- `window`, `document`, `fetch`,
+    // `EventSource` are ambient globals there, not Node's.
+    files: ['dashboard/**/*.ts', 'dashboard/**/*.tsx'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
     },
   },
   eslintConfigPrettier,

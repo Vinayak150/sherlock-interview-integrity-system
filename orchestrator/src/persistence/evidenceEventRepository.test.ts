@@ -122,7 +122,7 @@ describe('PostgresEvidenceEventRepository', () => {
       const events = await repo.listBySession('session-1');
 
       expect(events).toHaveLength(1);
-      expect(query.mock.calls[0]?.[1]).toEqual(['session-1', 500]);
+      expect(query.mock.calls[0]?.[1]).toEqual(['session-1', 500, 0]);
     });
 
     it('rejects an empty sessionId without querying', async () => {
@@ -152,7 +152,7 @@ describe('PostgresEvidenceEventRepository', () => {
 
       await repo.listBySession('session-1', { limit: 999_999 });
 
-      expect(query.mock.calls[0]?.[1]).toEqual(['session-1', 5000]);
+      expect(query.mock.calls[0]?.[1]).toEqual(['session-1', 5000, 0]);
     });
 
     it('wraps an unexpected database failure in EvidenceStoreError', async () => {
@@ -211,5 +211,15 @@ describe('InMemoryEvidenceEventRepository', () => {
     const events = await repo.listBySession('session-1', { limit: 2 });
 
     expect(events).toHaveLength(2);
+  });
+
+  it('listAllBySession returns every event across pages', async () => {
+    const repo = new InMemoryEvidenceEventRepository();
+    for (let i = 0; i < 600; i += 1) {
+      await repo.append(newEvent({ occurredAt: new Date(Date.UTC(2026, 6, 10, 12, 0, i)) }));
+    }
+
+    const all = await repo.listAllBySession('session-1');
+    expect(all).toHaveLength(600);
   });
 });

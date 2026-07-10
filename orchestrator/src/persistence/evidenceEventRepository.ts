@@ -5,7 +5,9 @@ import type { EvidenceEvent, NewEvidenceEvent } from '@sherlock/contracts';
 
 import type { QueryExecutor, QueryResultRow } from './db.js';
 import { EvidenceStoreError } from './errors.js';
+import { EvidencePersistenceValidationError } from './errors.js';
 import {
+  MAX_LIST_LIMIT,
   assertNonEmptySessionId,
   clampListLimit,
   toPersistenceValidationError,
@@ -23,8 +25,10 @@ export interface EvidenceEventRepository {
   append(event: NewEvidenceEvent): Promise<EvidenceEvent>;
   listBySession(
     sessionId: string,
-    options?: { readonly limit?: number },
+    options?: { readonly limit?: number; readonly offset?: number },
   ): Promise<readonly EvidenceEvent[]>;
+  /** Loads every persisted event for a session by paging — fusion must never silently truncate mid-session history (RFC §10). */
+  listAllBySession(sessionId: string): Promise<readonly EvidenceEvent[]>;
 }
 
 interface EvidenceEventRow extends QueryResultRow {
@@ -106,23 +110,42 @@ export class PostgresEvidenceEventRepository implements EvidenceEventRepository 
 
   async listBySession(
     sessionId: string,
-    options: { readonly limit?: number } = {},
+    options: { readonly limit?: number; readonly offset?: number } = {},
   ): Promise<readonly EvidenceEvent[]> {
     assertNonEmptySessionId(sessionId);
     const limit = clampListLimit(options.limit);
+    const offset = options.offset ?? 0;
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new EvidencePersistenceValidationError('offset must be a non-negative integer', [
+        `offset: received ${JSON.stringify(offset)}`,
+      ]);
+    }
 
     try {
       const result = await this.db.query<EvidenceEventRow>(
         `SELECT id, session_id, bundle, signal_name, health_status, value, metadata, occurred_at, recorded_at
          FROM evidence_events
          WHERE session_id = $1
-         ORDER BY occurred_at ASC
-         LIMIT $2`,
-        [sessionId, limit],
+         ORDER BY occurred_at ASC, id ASC
+         LIMIT $2 OFFSET $3`,
+        [sessionId, limit, offset],
       );
       return result.rows.map(rowToEvidenceEvent);
     } catch (error) {
       throw new EvidenceStoreError('Failed to list evidence events for session', error);
+    }
+  }
+
+  async listAllBySession(sessionId: string): Promise<readonly EvidenceEvent[]> {
+    const all: EvidenceEvent[] = [];
+    let offset = 0;
+    while (true) {
+      const page = await this.listBySession(sessionId, { limit: MAX_LIST_LIMIT, offset });
+      all.push(...page);
+      if (page.length < MAX_LIST_LIMIT) {
+        return all;
+      }
+      offset += page.length;
     }
   }
 }
@@ -157,14 +180,37 @@ export class InMemoryEvidenceEventRepository implements EvidenceEventRepository 
 
   async listBySession(
     sessionId: string,
-    options: { readonly limit?: number } = {},
+    options: { readonly limit?: number; readonly offset?: number } = {},
   ): Promise<readonly EvidenceEvent[]> {
     assertNonEmptySessionId(sessionId);
     const limit = clampListLimit(options.limit);
+    const offset = options.offset ?? 0;
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new EvidencePersistenceValidationError('offset must be a non-negative integer', [
+        `offset: received ${JSON.stringify(offset)}`,
+      ]);
+    }
 
     return this.events
       .filter((event) => event.sessionId === sessionId)
-      .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())
-      .slice(0, limit);
+      .sort(
+        (a, b) =>
+          a.occurredAt.getTime() - b.occurredAt.getTime() ||
+          a.id.localeCompare(b.id),
+      )
+      .slice(offset, offset + limit);
+  }
+
+  async listAllBySession(sessionId: string): Promise<readonly EvidenceEvent[]> {
+    const all: EvidenceEvent[] = [];
+    let offset = 0;
+    while (true) {
+      const page = await this.listBySession(sessionId, { limit: MAX_LIST_LIMIT, offset });
+      all.push(...page);
+      if (page.length < MAX_LIST_LIMIT) {
+        return all;
+      }
+      offset += page.length;
+    }
   }
 }

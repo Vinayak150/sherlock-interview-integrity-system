@@ -1,13 +1,21 @@
+import { randomUUID } from 'node:crypto';
+
 import 'dotenv/config';
 
 /**
  * Environment management for the orchestrator deployable (RFC §9.2).
  *
- * M1 adds `DatabaseConfig`: the Evidence Store (RFC §9.3, ADR-7) is the
- * first real infrastructure dependency the orchestrator has, so this is the
- * milestone that gives it a typed, validated home. Session-registry (M7)
- * and model-serving-client (M8) configuration arrive with the milestones
- * that need them, per the same rationale.
+ * M1 added `DatabaseConfig`: the Evidence Store (RFC §9.3, ADR-7) is the
+ * first real infrastructure dependency the orchestrator has, so that was
+ * the milestone that gave it a typed, validated home.
+ *
+ * M7 adds `RedisConfig` (the Session Registry, RFC §9.4/ADR-8) and
+ * `replicaId` (this process's own identity on the consistent-hash ring,
+ * RFC §9.4). M8 adds `HttpConfig` (the API layer's listen address).
+ * Model-serving-client configuration (Plan M8's own numbering — the
+ * Model-Serving Layer, distinct from this document's "M8 — External
+ * Interfaces/API Layer" per the batch this config change ships with)
+ * arrives with the milestone that actually needs it.
  */
 
 export type NodeEnv = 'development' | 'test' | 'production';
@@ -25,6 +33,39 @@ export interface DatabaseConfig {
   readonly database: string;
   readonly user: string;
   readonly password: string;
+  /** RFC §15/Pilot-readiness bar; Plan M16: encryption in transit for the Evidence Store connection. Defaults to `false` for local `docker-compose` development (a same-host Postgres container has no network hop worth encrypting); a real deployment sets `POSTGRES_SSL=true`. */
+  readonly ssl: boolean;
+}
+
+/** Connection parameters for the Session Registry (RFC §9.4, ADR-8). */
+export interface RedisConfig {
+  readonly url: string;
+}
+
+/** The API layer's (Plan M8, this batch) listen address. */
+export interface HttpConfig {
+  readonly port: number;
+  readonly host: string;
+}
+
+/** The Model-Serving Layer's base URL (RFC §9.2/§9.6; Plan M8/M9). */
+export interface ModelServingConfig {
+  readonly baseUrl: string;
+}
+
+/**
+ * The Privacy & Compliance Layer's configuration (RFC §15/Pilot-readiness
+ * bar; Plan M16). `fieldEncryptionKey` is the symmetric key
+ * `security/fieldEncryption.ts` uses for biometric-derivative encryption
+ * at rest -- a fixed local-dev default is provided so the stack still
+ * runs out of the box, exactly like every other `*_dev_password`-style
+ * default in this config module; a real deployment must override it.
+ * `dataResidencyRegion` is informational/config-level only (Plan M16's
+ * own stated scope) — no multi-region storage routing is implemented.
+ */
+export interface SecurityConfig {
+  readonly fieldEncryptionKey: string;
+  readonly dataResidencyRegion: string;
 }
 
 export interface OrchestratorConfig {
@@ -32,9 +73,16 @@ export interface OrchestratorConfig {
   readonly logLevel: string;
   readonly serviceName: string;
   readonly database: DatabaseConfig;
+  readonly redis: RedisConfig;
+  readonly http: HttpConfig;
+  readonly modelServing: ModelServingConfig;
+  /** This process's own identity on the consistent-hash ring (RFC §9.4) — falls back to a random UUID per process start when unset, since no real multi-replica deployment exists yet to assign one deliberately. */
+  readonly replicaId: string;
+  readonly security: SecurityConfig;
 }
 
 const DEFAULT_POSTGRES_PORT = 5432;
+const DEFAULT_HTTP_PORT = 8080;
 const MIN_TCP_PORT = 1;
 const MAX_TCP_PORT = 65_535;
 
@@ -77,7 +125,39 @@ function loadDatabaseConfig(env: NodeJS.ProcessEnv): DatabaseConfig {
     database: readNonEmpty(env.POSTGRES_DB, 'sherlock'),
     user: readNonEmpty(env.POSTGRES_USER, 'sherlock'),
     password: readNonEmpty(env.POSTGRES_PASSWORD, 'sherlock_dev_password'),
+    ssl: env.POSTGRES_SSL === 'true',
   };
+}
+
+function loadRedisConfig(env: NodeJS.ProcessEnv): RedisConfig {
+  return { url: readNonEmpty(env.REDIS_URL, 'redis://localhost:6379') };
+}
+
+function loadHttpConfig(env: NodeJS.ProcessEnv): HttpConfig {
+  return {
+    port: readPort(env.ORCHESTRATOR_HTTP_PORT, DEFAULT_HTTP_PORT),
+    host: readNonEmpty(env.ORCHESTRATOR_HTTP_HOST, '0.0.0.0'),
+  };
+}
+
+function loadModelServingConfig(env: NodeJS.ProcessEnv): ModelServingConfig {
+  return { baseUrl: readNonEmpty(env.MODEL_SERVING_URL, 'http://localhost:8081') };
+}
+
+function loadSecurityConfig(env: NodeJS.ProcessEnv): SecurityConfig {
+  return {
+    fieldEncryptionKey: readNonEmpty(
+      env.FIELD_ENCRYPTION_KEY,
+      'sherlock_dev_field_encryption_key_32_bytes!!',
+    ),
+    dataResidencyRegion: readNonEmpty(env.DATA_RESIDENCY_REGION, 'us'),
+  };
+}
+
+function loadReplicaId(env: NodeJS.ProcessEnv): string {
+  return env.ORCHESTRATOR_REPLICA_ID === undefined || env.ORCHESTRATOR_REPLICA_ID.trim() === ''
+    ? randomUUID()
+    : env.ORCHESTRATOR_REPLICA_ID;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): OrchestratorConfig {
@@ -86,5 +166,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): OrchestratorCo
     logLevel: env.LOG_LEVEL ?? 'info',
     serviceName: env.ORCHESTRATOR_SERVICE_NAME ?? 'orchestrator',
     database: loadDatabaseConfig(env),
+    redis: loadRedisConfig(env),
+    http: loadHttpConfig(env),
+    modelServing: loadModelServingConfig(env),
+    replicaId: loadReplicaId(env),
+    security: loadSecurityConfig(env),
   };
 }

@@ -21,4 +21,5 @@ COPY --from=build /usr/local/bin /usr/local/bin
 COPY src ./src
 USER sherlock
 ENV PYTHONPATH=/app/src
+EXPOSE 8081
 CMD ["python", "-m", "model_serving.main"]

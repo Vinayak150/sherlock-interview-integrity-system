@@ -7,12 +7,14 @@ on:
 
 jobs:
   typescript:
-    name: TypeScript (contracts, orchestrator)
+    name: TypeScript (contracts, orchestrator, client-agent, dashboard)
     runs-on: ubuntu-latest
     # The Evidence Store (RFC §9.3, ADR-7): a real Postgres instance so the
     # opt-in integration suite (`orchestrator/src/persistence/integration.test.ts`)
     # exercises the actual migration SQL and repository queries, not just
     # mocks, on every push/PR — not only in local development.
+    # The Session Registry (RFC §9.4, ADR-8): a real Redis instance, same
+    # rationale, for `orchestrator/src/routing/integration.test.ts` (M7).
     services:
       postgres:
         image: postgres:16-alpine
@@ -27,6 +29,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
@@ -34,6 +45,8 @@ jobs:
       POSTGRES_USER: sherlock
       POSTGRES_PASSWORD: sherlock_test_password
       RUN_DB_INTEGRATION_TESTS: 'true'
+      REDIS_URL: redis://localhost:6379
+      RUN_REDIS_INTEGRATION_TESTS: 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +70,7 @@ jobs:
       - name: Apply Evidence Store migrations
         run: npm run migrate --workspace=@sherlock/orchestrator
 
-      - name: Test (including opt-in Postgres integration suite)
+      - name: Test (including opt-in Postgres and Redis integration suites)
         run: npm run test
 
       - name: Build

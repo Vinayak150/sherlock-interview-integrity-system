@@ -1,8 +1,9 @@
 """Environment management for the model-serving deployable.
 
-M0 scope: read and validate the small set of variables the process needs to
-start and log correctly. No GPU pool, model registry, or RPC-serving
-configuration belongs here yet -- that arrives with M8.
+M0 scope covered the small set of variables the process needs to start and
+log correctly. M8 adds the serving API's listen address -- no GPU pool or
+model registry configuration exists yet, since no real model is loaded
+(see `embeddings/extractor.py`, `liveness/detector.py`).
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ class ModelServingConfig(BaseSettings):
 
     service_name: str = "model-serving"
     log_level: str = "info"
+    http_port: int = 8081
+    http_host: str = "0.0.0.0"
 
 
 def load_config() -> ModelServingConfig:
