@@ -135,7 +135,7 @@ function loadRedisConfig(env: NodeJS.ProcessEnv): RedisConfig {
 
 function loadHttpConfig(env: NodeJS.ProcessEnv): HttpConfig {
   return {
-    port: readPort(env.ORCHESTRATOR_HTTP_PORT, DEFAULT_HTTP_PORT),
+    port: readPort(env.PORT ?? env.ORCHESTRATOR_HTTP_PORT, DEFAULT_HTTP_PORT),
     host: readNonEmpty(env.ORCHESTRATOR_HTTP_HOST, '0.0.0.0'),
   };
 }
