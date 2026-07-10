@@ -1,0 +1,32 @@
+{
+  "name": "sherlock",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sherlock — Real-Time Candidate Identity & Interview-Integrity System (monorepo root)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "contracts",
+    "orchestrator"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@sherlock/contracts && npm run build --workspace=@sherlock/orchestrator",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run build --workspace=@sherlock/contracts && npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.19.0",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "eslint": "^9.19.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  }
+}

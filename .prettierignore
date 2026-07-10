@@ -1,0 +1,16 @@
+dist
+build
+coverage
+node_modules
+*.md.bak
+package-lock.json
+.venv
+__pycache__
+model-serving/.venv
+model-serving/**/__pycache__
+model-serving/**/*.egg-info
+
+# Authoritative source-of-truth docs (architecture.md, IMPLEMENTATION_PLAN.md)
+# are never reformatted or otherwise modified by tooling.
+docs/architecture.md
+docs/IMPLEMENTATION_PLAN.md

@@ -1,0 +1,18 @@
+# Applies to the repo-root build context (used by orchestrator/Dockerfile).
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/build
+**/coverage
+model-serving
+client-agent
+dashboard
+eval
+infra
+docs
+*.md
+.env
+.env.*
+!.env.example

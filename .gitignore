@@ -1,0 +1,31 @@
+# Node
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env
+.env
+.env.*.local
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+logs/
