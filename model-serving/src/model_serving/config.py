@@ -8,8 +8,7 @@ model registry configuration exists yet, since no real model is loaded
 
 from __future__ import annotations
 
-import os
-
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,12 +21,20 @@ class ModelServingConfig(BaseSettings):
     service_name: str = "model-serving"
     log_level: str = "info"
 
-    # Railway provides PORT automatically. Fall back to
-    # MODEL_SERVING_HTTP_PORT for local/dev, then 8081.
-    http_port: int = int(os.getenv("PORT") or os.getenv("MODEL_SERVING_HTTP_PORT", "8081"))
+    # Local development default
+    http_port: int = Field(default=8081)
 
     http_host: str = "0.0.0.0"
 
 
 def load_config() -> ModelServingConfig:
-    return ModelServingConfig()
+    config = ModelServingConfig()
+
+    # Railway injects PORT. Override after settings creation.
+    import os
+
+    port = os.environ.get("PORT")
+    if port is not None:
+        config.http_port = int(port)
+
+    return config
