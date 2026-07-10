@@ -1,28 +1,16 @@
 import { useState } from 'react';
 
-import { AggregateView, Dashboard } from './Dashboard.js';
-import { DashboardApiClient } from './apiClient.js';
+import { LandingPage } from './pages/LandingPage.js';
+import { ReviewerDashboard } from './pages/ReviewerDashboard.js';
 
-const ORCHESTRATOR_BASE_URL =
-  (import.meta.env.VITE_ORCHESTRATOR_URL as string | undefined) ?? 'http://localhost:8080';
+export type AppView = 'landing' | 'dashboard';
 
 export function App(): React.JSX.Element {
-  const [apiClient] = useState(() => new DashboardApiClient(ORCHESTRATOR_BASE_URL));
-  const [sessionId, setSessionId] = useState('');
+  const [view, setView] = useState<AppView>('landing');
 
-  return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      <header style={{ padding: 16, borderBottom: '1px solid #e5e7eb' }}>
-        <h1>Sherlock Reviewer Dashboard</h1>
-        <input
-          type="text"
-          placeholder="session id"
-          value={sessionId}
-          onChange={(e) => setSessionId(e.target.value)}
-        />
-      </header>
-      {sessionId.trim() !== '' && <Dashboard apiClient={apiClient} sessionId={sessionId.trim()} />}
-      <AggregateView apiClient={apiClient} />
-    </div>
-  );
+  if (view === 'landing') {
+    return <LandingPage onLaunchDashboard={() => setView('dashboard')} />;
+  }
+
+  return <ReviewerDashboard onGoHome={() => setView('landing')} />;
 }

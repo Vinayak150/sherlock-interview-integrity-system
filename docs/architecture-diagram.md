@@ -9,6 +9,7 @@ diagrams reflect **what is built**, not the original implementation plan.
 | [Runtime Processing Pipeline](architecture-diagram-pipeline.md) | In-process evidence-to-output pipeline |
 | [Infrastructure Architecture](architecture-diagram-infrastructure.md) | PostgreSQL, Redis, routing, recovery, and clients |
 | [Repository Structure](architecture-diagram-repository.md) | Monorepo packages and orchestrator modules |
+| [Deployment Architecture](architecture-diagram-deployment.md) | Railway topology and service data flow |
 
 ## Pilot notes
 
