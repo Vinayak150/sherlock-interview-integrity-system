@@ -1,11 +1,15 @@
-# Local development topology for M0.
+# Local development topology.
 #
 # Mirrors the RFC's stated service topology (§9.2/§9.6): one orchestrator
 # deployable, one model-serving deployable, one relational database
 # (Evidence Store, §9.3/ADR-7), and one lightweight KV store (Session
-# Registry, §9.4/ADR-8). No schema/migrations run against postgres and no
-# routing logic runs against redis in M0 -- they are provisioned here only
-# so later milestones (M1, M7) have infrastructure to build against.
+# Registry, §9.4/ADR-8).
+#
+# postgres: schema is applied explicitly via `make migrate` (M1) — not
+# automatically on container start — so applying a migration is always a
+# deliberate, observable step.
+# redis: provisioned for the Session Registry; no routing logic runs
+# against it yet (see M7).
 name: sherlock
 
 services:
@@ -48,6 +52,13 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Evidence Store (§9.3/ADR-7): the container-network hostname, not
+      # localhost — orchestrator and postgres are separate containers here.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:-sherlock}
+      POSTGRES_USER: ${POSTGRES_USER:-sherlock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sherlock_dev_password}
     depends_on:
       postgres:
         condition: service_healthy

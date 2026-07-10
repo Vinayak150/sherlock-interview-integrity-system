@@ -9,6 +9,31 @@ jobs:
   typescript:
     name: TypeScript (contracts, orchestrator)
     runs-on: ubuntu-latest
+    # The Evidence Store (RFC §9.3, ADR-7): a real Postgres instance so the
+    # opt-in integration suite (`orchestrator/src/persistence/integration.test.ts`)
+    # exercises the actual migration SQL and repository queries, not just
+    # mocks, on every push/PR — not only in local development.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sherlock
+          POSTGRES_USER: sherlock
+          POSTGRES_PASSWORD: sherlock_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sherlock"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: sherlock
+      POSTGRES_USER: sherlock
+      POSTGRES_PASSWORD: sherlock_test_password
+      RUN_DB_INTEGRATION_TESTS: 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +54,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
+      - name: Apply Evidence Store migrations
+        run: npm run migrate --workspace=@sherlock/orchestrator
+
+      - name: Test (including opt-in Postgres integration suite)
         run: npm run test
 
       - name: Build

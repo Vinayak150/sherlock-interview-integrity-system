@@ -9,37 +9,46 @@ incrementally). Neither document is redesigned, simplified, or
 second-guessed by this codebase; implementation follows them faithfully,
 milestone by milestone.
 
-## Current status: Milestone M0 — repository & tooling scaffolding
+## Current status: Milestone M1 — Evidence Store
 
-M0 establishes the project foundation every later milestone depends on:
-repository initialization, dependency management, containerization, linting,
-formatting, type-checking, testing, logging, environment management, and
-CI/CD.
+M0 established the project foundation (repository initialization, dependency
+management, containerization, linting, formatting, type-checking, testing,
+logging, environment management, CI/CD) with no domain code.
 
-**M0 deliberately contains no domain code.** There is no Bayesian fusion, no
-state machine, no evidence/decision engine, no database models, no APIs, no
-authentication, and no AI models yet. Every module that exists today is a
-minimal, compiling, testable scaffold whose only job is to prove the
-deployables start correctly — real domain logic arrives starting at M1 per
-`docs/IMPLEMENTATION_PLAN.md`.
+M1 adds the Evidence Store (RFC §9.3, ADR-7) — "one relational database"
+holding the two tables the rest of the system leans on:
+
+- `evidence_events` — the append-only, immutable-once-written audit ledger
+  (`orchestrator/src/persistence/migrations/0001_create_evidence_events.ts`).
+- `session_state_snapshots` — periodic Fusion Engine state checkpoints for
+  fast crash recovery
+  (`orchestrator/src/persistence/migrations/0002_create_session_state_snapshots.ts`).
+
+Along with the schema: the `EvidenceEvent`/`SessionStateSnapshot` storage
+contracts and the three-state signal-health contract (`@sherlock/contracts`),
+a forward-only migration runner, and Postgres-backed + in-memory
+implementations of the `EvidenceEventRepository`/`SessionSnapshotRepository`
+ports. **Still deliberately absent:** Bayesian fusion, the lifecycle state
+machine, bundle adapters, decision/explanation logic, and any API surface —
+those arrive starting at M2 per `docs/IMPLEMENTATION_PLAN.md`.
 
 ## Repository layout
 
-Matches the RFC's repository structure (§5); folders not yet needed by M0
+Matches the RFC's repository structure (§5); folders not yet needed
 (`client-agent/`, `dashboard/`, `eval/`, `infra/`, `docs/adr/`) are introduced
 by the milestones that need them, not created empty ahead of time.
 
 ```
 .
-├── contracts/       # @sherlock/contracts — cross-component schema package (empty scaffold; M0)
-├── orchestrator/    # modular monolith deployable (§9.2) — scaffold only; M0
+├── contracts/       # @sherlock/contracts — cross-component schema package: EvidenceEvent, SessionStateSnapshot, signal-health, bundle names (M1)
+├── orchestrator/    # modular monolith deployable (§9.2) — src/persistence/ (Evidence Store, M1); domain modules arrive M2+
 ├── model-serving/   # GPU-bound inference deployable (§9.2) — scaffold only; M0
 ├── docs/
 │   ├── architecture.md          # Architecture RFC (authoritative WHAT)
 │   └── IMPLEMENTATION_PLAN.md   # Implementation Plan (authoritative HOW)
 ├── docker-compose.yml            # local dev topology: postgres, redis, orchestrator, model-serving
 ├── Makefile                      # unified commands across the TypeScript and Python workspaces
-└── .github/workflows/ci.yml      # CI: lint, typecheck, test, build, docker build — every push/PR
+└── .github/workflows/ci.yml      # CI: lint, typecheck, test (incl. Postgres integration), build, docker build — every push/PR
 ```
 
 ## Why two languages
@@ -82,13 +91,30 @@ python -m model_serving.main   # from within model-serving/, after `pip install 
 
 ```bash
 make docker-up      # postgres + redis + orchestrator + model-serving
+make migrate         # apply Evidence Store migrations (RFC §9.3) against postgres
 make docker-logs
 make docker-down
 ```
 
-`postgres` and `redis` are provisioned here as infrastructure only — no
-schema, migration, or routing logic runs against them yet (that lands in
-M1 and M7 respectively).
+`redis` is provisioned as infrastructure only — no routing logic runs
+against it yet (that lands in M7). `postgres` now has real schema, applied
+explicitly via `make migrate` (never implicitly on container/process start).
+
+### Running the Evidence Store integration suite
+
+The default `make test` / `npm run test` runs entirely against mocks and
+in-memory fakes — no external services required. To additionally exercise
+the real migration SQL and repository queries against a live Postgres
+instance:
+
+```bash
+make docker-up   # starts postgres (and redis)
+make migrate
+RUN_DB_INTEGRATION_TESTS=true npm run test --workspace=@sherlock/orchestrator
+```
+
+CI runs this integration suite on every push/PR against a Postgres service
+container (`.github/workflows/ci.yml`).
 
 ## Tooling reference
 
@@ -119,6 +145,6 @@ single entrypoint works across both languages.
 ## Roadmap
 
 See `docs/IMPLEMENTATION_PLAN.md` §7 for the full milestone sequence
-(M0–M16). M0 is scaffolding; M1 begins the Evidence Store, and domain logic
-(bundles, fusion, the lifecycle FSM, decision/explanation engines) is built
-incrementally from M2 onward.
+(M0–M16). M0 was scaffolding; M1 (current) delivers the Evidence Store; domain
+logic (bundles, fusion, the lifecycle FSM, decision/explanation engines) is
+built incrementally from M2 onward.

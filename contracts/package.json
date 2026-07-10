@@ -2,7 +2,7 @@
   "name": "@sherlock/contracts",
   "version": "0.0.0",
   "private": true,
-  "description": "Cross-component schema/type package shared by orchestrator, model-serving, client-agent, and dashboard (RFC §5 repository structure). Empty scaffold in M0 — real contract types land alongside the milestones that need them.",
+  "description": "Cross-component schema/type package shared by orchestrator, model-serving, client-agent, and dashboard (RFC §5 repository structure). M1: EvidenceEvent and SessionStateSnapshot storage contracts (RFC §9.3, ADR-7) and the three-state signal-health contract (ADR-11).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,5 +20,8 @@
   "devDependencies": {
     "typescript": "^5.7.3",
     "vitest": "^3.0.4"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }
