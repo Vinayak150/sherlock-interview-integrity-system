@@ -104,10 +104,15 @@ Authoritative specifications:
 ### Landing page
 
 Landing page
+<img width="2638" height="1432" alt="image" src="https://github.com/user-attachments/assets/d67fee03-5142-46a6-82ec-8db7479201bd" />
+
 
 ### Dashboard overview
 
 Dashboard
+<img width="2704" height="1428" alt="image" src="https://github.com/user-attachments/assets/7841823b-0583-426c-9a8b-1fcdab35cb81" />
+
+
 
 ### Reviewer workspace
 
