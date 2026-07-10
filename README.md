@@ -1,22 +1,62 @@
-# Sherlock — Real-Time Candidate Identity & Interview-Integrity System
+# Sherlock
 
-This repository implements the system designed in [`docs/architecture.md`](docs/architecture.md)
-(the Architecture RFC — the **only** authoritative source for _what_ to
-build) following the sequencing in
-[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) (the
-Implementation Plan — the authoritative source for _how_ to build it,
-incrementally). Neither document is redesigned, simplified, or
-second-guessed by this codebase; implementation follows them faithfully,
-milestone by milestone.
+> Real-time candidate identity and interview-integrity system for remote hiring.
 
-## Current status: M0–M16 complete
+Sherlock continuously evaluates whether the live interview participant matches
+the applicant of record. Evidence from multiple weak signals is fused into a
+Bayesian belief, routed through a lifecycle state machine, and surfaced to
+human reviewers with deterministic explanations.
 
-All planned milestones in `docs/IMPLEMENTATION_PLAN.md` §7 are implemented.
-The system runs end-to-end from evidence ingestion through Bayesian fusion,
-lifecycle state management, decision and explanation, API exposure, dashboard
-updates, and offline evaluation — with Pilot-scope stubs where the plan
-explicitly defers production integrations (real ML models, ATS, LLM provider,
-authentication).
+| | |
+|---|---|
+| **Status** | ✅ Complete — milestones M0 through M16 |
+| **Scope** | Pilot implementation with intentional stub integrations |
+| **Spec** | [`docs/architecture.md`](docs/architecture.md) (what) · [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) (how) |
+
+Remaining gaps are **Pilot limitations** — stub integrations and deferred
+production hardening — not missing milestone work.
+
+---
+
+## Table of contents
+
+- [Project overview](#project-overview)
+- [Design principles](#design-principles)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Repository structure](#repository-structure)
+- [Technology stack](#technology-stack)
+- [Getting started](#getting-started)
+- [Running with Docker](#running-with-docker)
+- [Running tests](#running-tests)
+- [CI/CD](#cicd)
+- [Evaluation](#evaluation)
+- [Known limitations](#known-limitations)
+- [Future production work](#future-production-work)
+- [Roadmap](#roadmap)
+- [References](#references)
+
+---
+
+## Project overview
+
+Sherlock is a **modular monolith** with separate inference and client
+deployables:
+
+- **`orchestrator/`** — session state, evidence persistence, fusion, decision
+  pipeline, and HTTP API
+- **`model-serving/`** — GPU-bound embedding and liveness inference (Pilot
+  stubs)
+- **`dashboard/`** and **`client-agent/`** — reviewer UI and consented browser
+  events over HTTP / SSE
+
+The orchestrator HTTP API (`orchestrator/src/api/`) is wired in
+`orchestrator/src/index.ts` for ingress, egress, and live dashboard updates.
+
+### Milestones (M0–M16)
+
+<details>
+<summary><strong>Full milestone table</strong> — click to expand</summary>
 
 | Milestone | Deliverable |
 |-----------|-------------|
@@ -38,354 +78,343 @@ authentication).
 | **M15** | Evaluation harness — replay, edge cases, ablation, ECE |
 | **M16** | Security/privacy — field encryption, audit log, appeals |
 
-The orchestrator also includes an HTTP API layer (`orchestrator/src/api/`)
-named in the Plan's repository structure (§5) for ingress/egress; it was
-built alongside the core pipeline and is fully wired in `orchestrator/src/index.ts`.
+</details>
+
+| Phase | Milestones | Focus |
+|-------|------------|-------|
+| Foundation | M0–M2 | Contracts, evidence store, cold-start bundles |
+| Intelligence | M3–M6 | Fusion, lifecycle FSM, decision, explanation |
+| Scale & signals | M7–M11 | Routing, model serving, multimodal bundles |
+| Product & quality | M12–M16 | LLM narrative, dashboard, signal health, eval, security |
+
+---
+
+## Design principles
+
+| Principle | What it means in this codebase |
+|-----------|--------------------------------|
+| **Bayesian evidence fusion** | Log-odds accumulation with Beta-distributed posterior — not a point estimate |
+| **Multiple weak signals** | Seven bundle families with bundle-local correlation containment and log-LR clamping |
+| **Explainability** | Deterministic Evidence Reports per alert; LLM narrative cannot affect score or state |
+| **Human-in-the-loop** | Abstention, reviewer override, and appeals — the system recommends, humans decide |
+| **Clean Architecture** | Decision and explanation compose without cross-dependency; contracts define shared shapes |
+| **Modular Monolith** | In-process domain modules in one deployable; GPU inference isolated in `model-serving/` |
+| **Privacy by Design** | Field encryption at rest, audit logging on sensitive views, consented client capture |
+
+---
 
 ## Features
 
+### Core pipeline
+
 - **Real-time candidate identification** — continuous, session-scoped belief
-  about whether the live participant matches the applicant of record
-- **Bayesian confidence estimation** — log-odds fusion with Beta-distributed
-  posterior (probability + credible interval), not a point estimate
-- **Multi-signal evidence fusion** — seven bundle families (claim, metadata,
-  visual, audio, linguistic, device, elicitation) with bundle-local correlation
-  containment and per-event log-LR clamping
-- **Explainable decision pipeline** — every alert paired with a deterministic
-  Evidence Report; optional LLM narrative that cannot affect score or state
-- **Lifecycle State Machine** — eight states with hysteresis, dwell-time,
-  `LOST_CONFIDENCE`/`DISQUALIFIED` distinction, and permanent audit annotations
+  about participant identity
+- **Bayesian confidence estimation** — probability plus credible interval via
+  Beta posterior
+- **Multi-signal evidence fusion** — claim, metadata, visual, audio,
+  linguistic, device, and elicitation bundles
+- **Lifecycle State Machine** — eight states with hysteresis, dwell-time, and
+  `LOST_CONFIDENCE` / `DISQUALIFIED` distinction
 - **Decision Engine** — abstention (`UNKNOWN`), tie-breaking, elicitation
-  triggers, reviewer recommendations; zero dependency on the explanation module
+  triggers, and reviewer recommendations
 - **Evidence Report generation** — ranked contributing signals, contradictions,
   and missing-evidence separation
-- **Session routing and recovery** — consistent-hash ring, Redis session
-  registry, lifecycle snapshot restore on replica restart
+
+### Interfaces & deployables
+
 - **API layer** — HTTP ingress for all bundle families, SSE live updates,
-  human override, appeals, accommodation disclosure, aggregate `UNKNOWN` rate
-- **Dashboard** — 3-tier live badge, full 8-state reviewer view, override
-  actions, SSE subscription (`dashboard/`)
-- **Client Agent** — consented device/OS event capture (timing metadata only;
-  browser extension scaffold) (`client-agent/`)
-- **Model Serving** — separate Python deployable for face/voice embeddings and
-  visual liveness (Pilot stubs — no real GPU models loaded)
-- **Security components** — AES field encryption for visual/audio evidence at
-  rest, audit logging on biometric views, candidate appeal flow
-- **Evaluation framework** — offline replay, §11 edge-case regression, ablation
-  runner, expected calibration error (`orchestrator/src/eval/`)
+  human override, appeals, and accommodation disclosure
+- **Dashboard** — live badge, full lifecycle view, override actions, SSE
+  subscription (`dashboard/`)
+- **Client Agent** — consented device/OS event capture, timing metadata only
+  (`client-agent/`)
+- **Model Serving** — separate Python deployable for embeddings and liveness
+  (Pilot stubs — no real GPU models loaded)
 
-## Architecture diagram
+### Infrastructure & quality
 
-Implementation architecture (M0–M16), mapped to actual repository modules.
-See [`docs/architecture-diagram.md`](docs/architecture-diagram.md) for the
-source file and component notes.
+- **Session routing and recovery** — consistent-hash ring, Redis registry,
+  lifecycle snapshot restore on replica restart
+- **Security** — AES field encryption for visual/audio evidence at rest,
+  audit logging, and candidate appeal flow
+- **Evaluation framework** — offline replay, edge-case regression, ablation,
+  and calibration (`orchestrator/src/eval/`)
+
+---
+
+## Architecture
+
+High-level deployables and data flow (M0–M16).
 
 ```mermaid
 flowchart LR
 
-  subgraph CLIENT["Client Layer"]
-    Browser
-    ClientAgent["Client Agent"]
-    Dashboard
-  end
-
   subgraph EXT["External Inputs"]
-    MeetTeamsZoom["Google Meet / Teams / Zoom"]
-    ParticipantMeta["Participant Metadata"]
-    AudioStreams["Audio Streams"]
-    VideoStreams["Video Streams"]
-    Transcript["Transcript"]
-    CalendarATS["Calendar / ATS Metadata"]
+    VP["Video Platform"]
+    ATS["Calendar / ATS"]
   end
 
-  subgraph API["API Layer"]
-    HTTPServer["httpServer - HTTP API"]
-    SessionOrchestrationService
-    SessionEventBus
+  subgraph CLIENT["Client Layer"]
+    CA["Client Agent"]
+    DASH["Dashboard"]
   end
 
-  subgraph BUNDLES["Bundle Adapters"]
-    ClaimBundleAdapter["ClaimBundleAdapter"]
-    MetadataBundleAdapter["MetadataBundleAdapter"]
-    VisualBundleAdapter["VisualBundleAdapter"]
-    AudioBundleAdapter["AudioBundleAdapter"]
-    DeviceBundleAdapter["DeviceBundleAdapter"]
-    LinguisticBundleAdapter["LinguisticBundleAdapter"]
-    ElicitationBundleAdapter["ElicitationBundleAdapter"]
+  subgraph CORE["Orchestrator"]
+    API["HTTP API"]
+    PIPE["Core Pipeline"]
+    SEC["Security"]
   end
 
-  subgraph MODEL["Model Serving"]
-    HttpModelServingClient["HttpModelServingClient"]
-    ServingAPI["Model Serving API - FastAPI"]
-    EmbeddingExtractor["EmbeddingExtractor"]
-    LivenessDetector["LivenessDetector"]
+  subgraph DATA["Persistence"]
+    PG[("PostgreSQL")]
+    RD[("Redis")]
   end
 
-  subgraph EVIDENCE["Evidence Layer"]
-    EncryptingRepo["EncryptingEvidenceEventRepository"]
-    EvidenceStore["Evidence Store"]
-    PostgreSQL["PostgreSQL"]
-    SessionSnapshots["Session Snapshots"]
-  end
+  MS["Model Serving"]
+  REV["Human Reviewer"]
 
-  subgraph INTEL["Intelligence Layer"]
-    FusionEngine["FusionEngine"]
-    ChangePointDetector["ChangePointDetector"]
-    LifecycleStateManager["LifecycleStateManager"]
-    DecisionEngine["DecisionEngine"]
-    ExplanationEngine["ExplanationEngine"]
-    LlmNarrativeAdapter["LlmNarrativeAdapter"]
-  end
-
-  subgraph INFRA["Infrastructure"]
-    RedisSessionRegistry["RedisSessionRegistry"]
-    SessionRouter["SessionRouter"]
-    SessionLifecycleStore["SessionLifecycleStore"]
-    ConsistentHashRing["ConsistentHashRing"]
-  end
-
-  subgraph SEC["Security"]
-    FieldEncryption["fieldEncryption"]
-    AuditLogRepository["InMemoryAuditLogRepository"]
-    AppealRepository["InMemoryAppealRepository"]
-  end
-
-  subgraph OUT["Outputs"]
-    CandidateDecision["Candidate Decision"]
-    ConfidenceScore["Confidence Score"]
-    EvidenceReport["Evidence Report"]
-    DashboardUpdates["Dashboard Updates"]
-    HumanReview["Human Review"]
-  end
-
-  MeetTeamsZoom --> HTTPServer
-  ParticipantMeta --> HTTPServer
-  AudioStreams --> HTTPServer
-  VideoStreams --> HTTPServer
-  Transcript --> HTTPServer
-  CalendarATS --> HTTPServer
-
-  ClientAgent --> HTTPServer
-  Browser --> Dashboard
-
-  HTTPServer --> SessionOrchestrationService
-  SessionOrchestrationService --> ClaimBundleAdapter
-  SessionOrchestrationService --> SessionEventBus
-  SessionEventBus --> Dashboard
-
-  VisualBundleAdapter --> HttpModelServingClient
-  AudioBundleAdapter --> HttpModelServingClient
-  HttpModelServingClient --> ServingAPI
-  ServingAPI --> EmbeddingExtractor
-  ServingAPI --> LivenessDetector
-
-  ClaimBundleAdapter --> EncryptingRepo
-  MetadataBundleAdapter --> EncryptingRepo
-  VisualBundleAdapter --> EncryptingRepo
-  AudioBundleAdapter --> EncryptingRepo
-  DeviceBundleAdapter --> EncryptingRepo
-  LinguisticBundleAdapter --> EncryptingRepo
-  ElicitationBundleAdapter --> EncryptingRepo
-
-  EncryptingRepo --> FieldEncryption
-  EncryptingRepo --> EvidenceStore
-  EvidenceStore --> PostgreSQL
-  SessionLifecycleStore --> SessionSnapshots
-  SessionSnapshots --> PostgreSQL
-
-  EvidenceStore --> FusionEngine
-  FusionEngine --> LifecycleStateManager
-  ChangePointDetector --> LifecycleStateManager
-  VisualBundleAdapter --> ChangePointDetector
-  AudioBundleAdapter --> ChangePointDetector
-  SessionLifecycleStore --> LifecycleStateManager
-  LifecycleStateManager --> DecisionEngine
-  DecisionEngine --> ExplanationEngine
-  ExplanationEngine --> LlmNarrativeAdapter
-
-  RedisSessionRegistry --> SessionRouter
-  ConsistentHashRing --> SessionRouter
-  SessionRouter --> SessionLifecycleStore
-
-  SessionOrchestrationService --> AuditLogRepository
-  SessionOrchestrationService --> AppealRepository
-
-  DecisionEngine --> CandidateDecision
-  FusionEngine --> ConfidenceScore
-  ExplanationEngine --> EvidenceReport
-  LlmNarrativeAdapter --> EvidenceReport
-  SessionEventBus --> DashboardUpdates
-  CandidateDecision --> HumanReview
-  HTTPServer --> HumanReview
+  VP --> API
+  ATS --> API
+  CA --> API
+  API --> PIPE
+  PIPE --> SEC
+  SEC --> PG
+  PIPE --> PG
+  PIPE --> RD
+  PIPE --> MS
+  PIPE --> DASH
+  DASH --> REV
+  API --> REV
 ```
 
-## Repository layout
+### Additional diagrams
+
+| Diagram | Description |
+|---------|-------------|
+| [Runtime pipeline](docs/architecture-diagram-pipeline.md) | Participant → bundles → evidence → fusion → FSM → decision → explanation |
+| [Infrastructure](docs/architecture-diagram-infrastructure.md) | PostgreSQL, Redis, routing, recovery, model serving, clients |
+| [Repository layout](docs/architecture-diagram-repository.md) | Monorepo packages and orchestrator modules |
+| [Diagram index](docs/architecture-diagram.md) | Full index with Pilot notes |
+
+---
+
+## Repository structure
+
+### Package responsibilities
+
+| Package | Responsibility |
+|---------|----------------|
+| `contracts/` | Shared Zod schemas — `EvidenceEvent`, signal-health contracts, bundle payloads |
+| `orchestrator/` | Modular monolith — evidence store, bundles, fusion, FSM, decision, explanation, routing, API, security, eval |
+| `model-serving/` | Python inference service — embeddings and liveness via FastAPI (Pilot stubs) |
+| `dashboard/` | React reviewer UI — live badge, lifecycle state, override, SSE |
+| `client-agent/` | Browser extension scaffold — consented device/OS timing events |
+
+### Directory tree
 
 ```
 .
-├── contracts/              # @sherlock/contracts — shared schemas (EvidenceEvent, signal-health, bundle payloads)
-├── orchestrator/           # modular monolith deployable (RFC §9.2)
+├── contracts/              # @sherlock/contracts
+├── orchestrator/           # modular monolith (RFC §9.2)
 │   └── src/
-│       ├── persistence/    # Evidence Store — repositories, migrations (M1)
-│       ├── bundles/        # Bundle Adapters — claim/, metadata/, visual/, audio/, linguistic/, device/, elicitation/ (M2, M9–M11)
-│       ├── fusion/         # Fusion Engine — Beta posterior, decay, LR registry, change-point, log-LR clamp (M3, M9, M14)
-│       ├── statemachine/   # cold-start subset (M2) + full 8-state lifecycle FSM (M4)
-│       ├── decision/       # Decision Engine — alerts, abstention, reviewer recommendation (M5)
-│       ├── explanation/    # Evidence Report Engine + LLM narrative adapter (M6, M12)
-│       ├── routing/        # Session Registry, Router, recovery-aware lifecycle store (M7)
-│       ├── modelserving_client/  # HTTP client + adaptive sampling cadence (M8)
-│       ├── api/            # HTTP ingress/egress, SSE event bus, orchestration service (M8 API, M13)
-│       ├── security/       # Field encryption, audit log, appeals (M16)
-│       └── eval/           # Replay, ablation, calibration, edge-case regression (M15)
-├── model-serving/          # Python GPU-bound inference deployable — embeddings, liveness, serving API (M8; Pilot stubs)
-├── client-agent/           # Browser extension — consented device/OS events (M10)
-├── dashboard/              # Interviewer UI / Reviewer Dashboard — React + Vite (M13)
-├── docs/
-│   ├── architecture.md          # Architecture RFC (authoritative WHAT)
-│   └── IMPLEMENTATION_PLAN.md   # Implementation Plan (authoritative HOW)
-├── docker-compose.yml      # postgres, redis, migrate, orchestrator, model-serving
-├── Makefile                # unified commands across TypeScript and Python workspaces
-└── .github/workflows/ci.yml   # lint, typecheck, test, build, docker — every push/PR
+│       ├── persistence/    # Evidence Store (M1)
+│       ├── bundles/        # Bundle adapters (M2, M9–M11)
+│       ├── fusion/         # Fusion engine (M3, M9, M14)
+│       ├── statemachine/   # Lifecycle FSM (M2, M4)
+│       ├── decision/       # Decision engine (M5)
+│       ├── explanation/    # Evidence reports + LLM adapter (M6, M12)
+│       ├── routing/        # Session registry, router, recovery (M7)
+│       ├── modelserving_client/  # HTTP client (M8)
+│       ├── api/            # HTTP ingress, SSE, orchestration (M8, M13)
+│       ├── security/       # Encryption, audit, appeals (M16)
+│       └── eval/           # Offline evaluation (M15)
+├── model-serving/          # Python inference deployable (M8)
+├── client-agent/           # Browser extension (M10)
+├── dashboard/              # Reviewer UI (M13)
+├── docs/                   # Architecture RFC + Implementation Plan
+├── docker-compose.yml
+├── Makefile
+└── .github/workflows/ci.yml
 ```
 
-## Why two languages
+---
 
-Per §6 of the Implementation Plan ("Technology Stack (Inferred)"), the RFC
-specifies no language, only architectural properties:
+## Technology stack
 
-- **`orchestrator/`, `contracts/`, `client-agent/`, `dashboard/` — TypeScript
-  on Node.js / React.** The orchestrator's properties (many lightweight,
-  memory/IO-bound, per-session state machines; in-process modules; horizontal
-  replication) fit a typed runtime; TypeScript/Node.js was chosen as one of
-  the RFC's named plausible fits.
-- **`model-serving/` — Python.** Named directly in the plan as "the practical
-  inference-ecosystem default" for GPU-bound classifiers and ASR.
+### Runtime & data
 
-## Prerequisites
+| Technology | Role |
+|------------|------|
+| TypeScript | Orchestrator, contracts, dashboard, client-agent |
+| Node.js | Orchestrator runtime; npm workspace monorepo |
+| React | Reviewer dashboard |
+| Python | Model-serving inference |
+| FastAPI | Model-serving HTTP API |
+| PostgreSQL | Evidence events and session snapshots |
+| Redis | Session registry for multi-replica routing |
+| Docker | Local development and CI image builds |
+| Zod | Runtime schema validation in `@sherlock/contracts` |
 
-- Node.js ≥ 20 and npm ≥ 10
-- Python ≥ 3.11
-- Docker and Docker Compose (for containerized local development)
+### Testing & tooling
+
+| Technology | Role |
+|------------|------|
+| Vitest | TypeScript unit and integration tests |
+| Pytest | Python model-serving tests |
+
+| Concern | TypeScript workspaces | Python (`model-serving/`) |
+|---------|----------------------|---------------------------|
+| Dependencies | npm workspaces | `pyproject.toml` + `pip install -e ".[dev]"` |
+| Lint / format | ESLint + Prettier | Ruff |
+| Typing | `tsc --strict` | mypy (`strict = true`) |
+| Logging | `pino` (JSON) | stdlib `logging` |
+
+**Makefile entrypoints:** `make install` · `make lint` · `make format` ·
+`make typecheck` · `make test` · `make build` · `make ci`
+
+TypeScript handles IO-bound per-session orchestration; Python handles
+GPU-bound inference (Implementation Plan §6).
+
+---
 
 ## Getting started
 
+**Prerequisites:** Node.js ≥ 20 · npm ≥ 10 · Python ≥ 3.11 · Docker (optional)
+
 ```bash
 cp .env.example .env
+make install          # TypeScript workspaces + Python package
+make ci               # lint, typecheck, test, build
+```
 
-# Install everything (TypeScript workspaces + the Python package)
-make install
+**Run services locally (no Docker):**
 
-# Lint, type-check, test, and build everything
-make ci
-
-# Or, run each deployable directly without Docker:
+```bash
 npm run dev --workspace=@sherlock/orchestrator
 cd model-serving && pip install -e ".[dev]" && python -m model_serving.main
-npm run dev --workspace=@sherlock/dashboard   # Vite on :5173; expects orchestrator at http://localhost:8080
+npm run dev --workspace=@sherlock/dashboard   # :5173 → orchestrator :8080
 ```
 
-### Running with Docker Compose
+---
+
+## Running with Docker
 
 ```bash
-make docker-up      # postgres + redis + migrate + orchestrator + model-serving
+make docker-up        # postgres, redis, migrate, orchestrator, model-serving
 make docker-logs
 make docker-down
+make migrate          # apply schema manually if needed
 ```
 
-`docker compose up` runs a one-shot `migrate` service before starting the
-orchestrator, so the Evidence Store schema is applied automatically. You can
-also apply migrations manually at any time:
+`docker compose up` runs a one-shot `migrate` service before the orchestrator
+starts, so the Evidence Store schema is applied automatically.
 
-```bash
-make migrate
-```
+| Service | Port |
+|---------|------|
+| Orchestrator | `8080` |
+| Model Serving | `8081` |
 
-The orchestrator listens on port **8080**; model-serving on **8081**.
+---
 
-### Running integration test suites
+## Running tests
 
-The default `make test` / `npm run test` runs entirely against mocks and
-in-memory fakes — no external services required. To additionally exercise
-real Postgres and Redis against live services:
+| Mode | Command | Requires |
+|------|---------|----------|
+| Default | `make test` | Nothing — mocks and in-memory fakes |
+| DB + Redis | See below | Running Postgres and Redis |
 
 ```bash
 make docker-up
 make migrate
-RUN_DB_INTEGRATION_TESTS=true RUN_REDIS_INTEGRATION_TESTS=true npm run test --workspace=@sherlock/orchestrator
+RUN_DB_INTEGRATION_TESTS=true RUN_REDIS_INTEGRATION_TESTS=true \
+  npm run test --workspace=@sherlock/orchestrator
 ```
 
-CI runs both integration suites on every push/PR against service containers
-(`.github/workflows/ci.yml`).
+CI runs both integration suites on every push/PR — see [CI/CD](#cicd).
 
-## Tooling reference
-
-| Concern               | TypeScript (`contracts/`, `orchestrator/`, `client-agent/`, `dashboard/`) | Python (`model-serving/`)                                 |
-| --------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
-| Dependency management | npm workspaces                                                           | `pyproject.toml` (setuptools) + `pip install -e ".[dev]"` |
-| Linting               | ESLint (flat config, `eslint.config.mjs`)                                | Ruff (`ruff check`)                                       |
-| Formatting            | Prettier                                                                 | Ruff (`ruff format`)                                      |
-| Typing                | `tsc --strict`                                                           | mypy (`strict = true`)                                    |
-| Testing               | Vitest                                                                   | pytest                                                    |
-| Logging               | `pino` (structured, JSON)                                                | stdlib `logging` (structured JSON-like formatter)         |
-
-Every command above is also reachable through the root `Makefile` (`make
-lint`, `make format`, `make typecheck`, `make test`, `make build`) so a
-single entrypoint works across both languages.
+---
 
 ## CI/CD
 
-`.github/workflows/ci.yml` runs on every push and pull request:
+Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — every push
+and pull request.
 
-1. **`typescript`** — install, lint, format-check, typecheck, migrate, test
-   (including Postgres and Redis integration suites), build all four
-   TypeScript workspaces (`contracts`, `orchestrator`, `client-agent`,
-   `dashboard`).
-2. **`python`** — install, lint, format-check, typecheck, test
-   `model-serving`.
-3. **`docker`** — build both deployables' Docker images and validate
-   `docker-compose.yml`, gated on the two jobs above passing.
+| Job | Steps |
+|-----|-------|
+| `typescript` | Install → lint → format-check → typecheck → migrate → test (incl. Postgres & Redis) → build all TS workspaces |
+| `python` | Install → lint → format-check → typecheck → test `model-serving` |
+| `docker` | Build images + validate `docker-compose.yml` (gated on jobs above) |
 
-## Roadmap
+---
 
-**All planned milestones (M0–M16) are complete.** See
-`docs/IMPLEMENTATION_PLAN.md` §7 for the original sequencing and rationale.
+## Evaluation
 
-What remains is not unfinished milestone work — it is intentional Pilot-scope
-limitation documented in code comments and listed below. Production hardening
-(authentication, durable compliance stores, real ML models, multi-replica
-routing enforcement) is deferred per the RFC's phased-infrastructure philosophy
-(ADR-14): add complexity only against measured scale thresholds, not ahead of
-need.
+Offline tooling in `orchestrator/src/eval/` (M15). Validates pipeline behavior
+without live interview traffic.
+
+| Suite | Purpose |
+|-------|---------|
+| Unit tests | Per-module correctness (~700 tests across workspaces) |
+| Integration tests | Full pipeline; optional Postgres and Redis suites |
+| Chaos tests | Signal-health enforcement and log-LR clamp (M14) |
+| Replay evaluation | Deterministic re-run of recorded evidence sequences |
+| Calibration | Expected calibration error (ECE) on held-out scenarios |
+| Edge-case regression | RFC §11 — cold start, contradiction, modality dropout |
+
+```bash
+make ci    # full local check
+```
+
+---
 
 ## Known limitations
 
-These are genuine remaining gaps in the Pilot implementation, not missing
-milestones:
+Pilot-scope gaps in the current implementation:
 
-- **Stub ML models** — `model-serving/` serves deterministic embedding and
-  liveness stubs; no real GPU models, deepfake/voice-clone classifiers, or ASR
-- **Stub ATS integration** — `InMemoryAtsClient` only; claim lookups report
-  `SERVICE_UNAVAILABLE` until a real ATS/scheduling client is wired
-- **Stub LLM provider** — narrative layer uses `StubLlmProvider` (deterministic
-  template); no real LLM API configured
-- **No production authentication** — all orchestrator HTTP endpoints are
-  unauthenticated; human override and evidence ingestion have no RBAC
-- **In-memory compliance stores** — audit log, appeals, and accommodation
-  disclosures use in-memory repositories (not Postgres-backed)
-- **Single-replica deployment** — `SessionRouter` is built and tested but not
-  wired into `orchestrator/src/index.ts`; routing enforcement is deferred to
-  the load balancer per RFC §9.4
-- **Ephemeral CUSUM state** — embedding self-consistency and change-point
-  detector accumulators are in-memory; not restored from snapshots after crash
-- **Client Agent incomplete** — consent, event aggregation, and keyboard-rhythm
-  timing are implemented; content script for clipboard/paste capture is not
-  shipped; orchestrator URL is hardcoded for local dev
-- **Dashboard partial** — live badge, lifecycle state, override, accommodation
-  form, and SSE subscription work; structured Evidence Report and narrative are
-  not rendered in the UI
-- **Meta / cross-session bundles** — contract types exist; no bundle adapters
-  (Bundle H/I deferred beyond Pilot scope)
-- **Accommodation disclosure** — recorded and surfaced on session status, but
-  not yet wired into fusion to suppress specific signals (ADR-13 partial)
-- **Contracts scope** — `LifecycleState` and `EvidenceReport` shapes live in
-  orchestrator/dashboard, not yet exported from `@sherlock/contracts`
+| Area | Limitation |
+|------|------------|
+| LLM narrative | `StubLlmProvider` only — no real LLM API |
+| CUSUM state | Change-point accumulators in-memory; not restored from snapshots |
+| Client Agent | No clipboard/paste content script; hardcoded orchestrator URL |
+| Dashboard | Evidence Report and narrative not rendered in UI |
+| Bundles H/I | Contract types only — no meta / cross-session adapters |
+| Accommodation | Recorded but not wired into fusion signal suppression (ADR-13 partial) |
+| Contracts | `LifecycleState` and `EvidenceReport` not yet in `@sherlock/contracts` |
+
+---
+
+## Future production work
+
+Intentionally deferred beyond the Pilot (ADR-14 — add complexity at measured
+scale, not ahead of need):
+
+| Area | Work required |
+|------|---------------|
+| ML models | Production GPU models, deepfake/voice-clone classifiers, ASR |
+| Authentication | RBAC on HTTP endpoints, override, and ingestion |
+| Compliance stores | Postgres-backed audit log, appeals, accommodations |
+| ATS integration | Real ATS/scheduling client replacing `InMemoryAtsClient` |
+| Multi-replica | Wire `SessionRouter` into ingress (built, tested; single-replica entrypoint today) |
+
+---
+
+## Roadmap
+
+All planned milestones **M0–M16 are complete**.
+
+See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) §7 for
+original sequencing. Next steps follow production needs and measured scale
+thresholds.
+
+---
+
+## References
+
+| Document | Description |
+|----------|-------------|
+| [`docs/architecture.md`](docs/architecture.md) | Architecture RFC — authoritative _what_ |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Implementation Plan — authoritative _how_ |
+| [`docs/architecture-diagram.md`](docs/architecture-diagram.md) | Diagram index + Pilot notes |
+| [`docs/architecture-diagram-pipeline.md`](docs/architecture-diagram-pipeline.md) | Runtime processing pipeline |
+| [`docs/architecture-diagram-infrastructure.md`](docs/architecture-diagram-infrastructure.md) | Infrastructure and deployables |
+| [`docs/architecture-diagram-repository.md`](docs/architecture-diagram-repository.md) | Monorepo package relationships |
