@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ModelServingUnavailableError, ModelServingValidationError } from './errors.js';
+import { ModelServingLivenessError, ModelServingNoFaceError, ModelServingUnavailableError, ModelServingValidationError } from './errors.js';
 import { HttpModelServingClient } from './modelServingClient.js';
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
@@ -78,6 +78,48 @@ describe('HttpModelServingClient', () => {
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
     expect(body).toEqual({ sessionId: 's', payload: Buffer.from('hi').toString('base64') });
+  });
+
+  it('throws ModelServingLivenessError when model-serving returns a liveness NO_FACE_DETECTED error', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          detail: {
+            error: 'NO_FACE_DETECTED',
+            sessionId: 'session-1',
+            message: 'no face detected in frame',
+          },
+        },
+        false,
+        404,
+      ),
+    );
+    const client = new HttpModelServingClient({ baseUrl: 'http://x', fetchImpl });
+
+    await expect(
+      client.detectVisualLiveness('session-1', new Uint8Array([1])),
+    ).rejects.toBeInstanceOf(ModelServingLivenessError);
+  });
+
+  it('throws ModelServingNoFaceError when model-serving returns a NO_FACE 404', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          detail: {
+            error: 'NO_FACE',
+            sessionId: 'session-1',
+            message: 'No face detected in frame',
+          },
+        },
+        false,
+        404,
+      ),
+    );
+    const client = new HttpModelServingClient({ baseUrl: 'http://x', fetchImpl });
+
+    await expect(
+      client.extractFaceEmbedding('session-1', new Uint8Array([1])),
+    ).rejects.toBeInstanceOf(ModelServingNoFaceError);
   });
 
   it('throws ModelServingUnavailableError on a non-2xx response, never returning a fabricated result', async () => {

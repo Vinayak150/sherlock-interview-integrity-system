@@ -21,6 +21,9 @@ import type {
   ExplanationEngine,
   LlmNarrativeAdapter,
 } from '../explanation/index.js';
+import { CandidateConfidenceEngine } from '../candidateConfidence/index.js';
+import type { ConfidenceCalibrator } from '../calibration/index.js';
+import type { AiMetricsRecorder } from '../observability/index.js';
 import type { FusionEngine } from '../fusion/index.js';
 import type {
   AccommodationDisclosureRepository,
@@ -82,12 +85,13 @@ export interface AggregateStatus {
 export class SessionOrchestrationService {
   /** Serializes concurrent ingestions per session (RFC §9.4 single-owner ordering at the orchestrator layer). */
   private readonly sessionChains = new Map<string, Promise<unknown>>();
+  private readonly candidateConfidenceEngine: CandidateConfidenceEngine;
 
   constructor(
     private readonly claimAdapter: ClaimBundleAdapter,
     private readonly metadataAdapter: MetadataBundleAdapter,
     private readonly evidenceRepository: EvidenceEventRepository,
-    private readonly fusionEngine: FusionEngine,
+    fusionEngine: FusionEngine,
     private readonly lifecycleStore: SessionLifecycleStore,
     private readonly decisionEngine: DecisionEngine,
     private readonly explanationEngine: ExplanationEngine,
@@ -101,7 +105,11 @@ export class SessionOrchestrationService {
     private readonly sessionEventBus?: SessionEventBus,
     private readonly auditLogRepository?: AuditLogRepository,
     private readonly appealRepository?: AppealRepository,
-  ) {}
+    private readonly confidenceCalibrator?: ConfidenceCalibrator,
+    private readonly aiMetricsRecorder?: AiMetricsRecorder,
+  ) {
+    this.candidateConfidenceEngine = new CandidateConfidenceEngine(fusionEngine, claimAdapter);
+  }
 
   /**
    * Ingests one round of Claim + Metadata bundle observations for a
@@ -114,6 +122,11 @@ export class SessionOrchestrationService {
     joinMetadata: SessionJoinMetadata,
     now: Date = new Date(),
   ): Promise<IngestEvidenceResult> {
+    this.candidateConfidenceEngine.recordClaimObservation(
+      sessionId,
+      observedClaim,
+      this.claimAdapter.listKnownCandidateIds(),
+    );
     const claimEvents = await this.claimAdapter.buildEvidenceEvents(sessionId, observedClaim, now);
     const metadataEvents = this.metadataAdapter.buildEvidenceEvents(sessionId, joinMetadata, now);
 
@@ -357,7 +370,17 @@ export class SessionOrchestrationService {
       const persistedEvidence = await this.evidenceRepository.listAllBySession(sessionId);
       const contradiction =
         explicitContradiction ?? extractContradictionSignal(events, persistedEvidence) ?? undefined;
-      const posterior = this.fusionEngine.computePosterior(sessionId, persistedEvidence, now);
+      const rawCandidateEvaluation = await this.candidateConfidenceEngine.evaluate(
+        sessionId,
+        persistedEvidence,
+        now,
+      );
+      const candidateEvaluation =
+        this.confidenceCalibrator === undefined
+          ? rawCandidateEvaluation
+          : this.confidenceCalibrator.calibrateEvaluation(rawCandidateEvaluation);
+      this.candidateConfidenceEngine.rememberTable(candidateEvaluation.table);
+      const posterior = candidateEvaluation.selectedPosterior;
       const transition = await this.lifecycleStore.evaluate(
         sessionId,
         posterior,
@@ -381,6 +404,10 @@ export class SessionOrchestrationService {
               posterior: decision.evidenceRef.posterior,
               events: decision.evidenceRef.events,
               generatedAt: decision.alert.raisedAt,
+              contradictionMetrics: candidateEvaluation.contradictionMetrics,
+              classification: candidateEvaluation.classification,
+              topParticipantId: candidateEvaluation.table.topParticipantId,
+              crossModalMetrics: candidateEvaluation.crossModalMetrics,
             });
 
       // RFC §8/§13: the narrative layer is a best-effort, non-critical addition on top of the
@@ -392,6 +419,16 @@ export class SessionOrchestrationService {
           : await this.llmNarrativeAdapter.generateNarrative(report);
 
       this.sessionEventBus?.publish(decision);
+
+      this.aiMetricsRecorder?.recordSessionMetrics({
+        sessionId,
+        evaluatedAt: now,
+        posterior,
+        contradictionMetrics: candidateEvaluation.contradictionMetrics,
+        crossModalMetrics: candidateEvaluation.crossModalMetrics,
+        tickEvents: events,
+        topParticipantId: candidateEvaluation.table.topParticipantId,
+      });
 
       return { decision, report, narrative };
     });

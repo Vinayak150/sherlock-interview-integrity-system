@@ -13,7 +13,8 @@ import {
   VisualBundleAdapter,
 } from './bundles/index.js';
 import { DecisionEngine } from './decision/index.js';
-import { ExplanationEngine, LlmNarrativeAdapter, StubLlmProvider } from './explanation/index.js';
+import { ExplanationEngine, LlmNarrativeAdapter } from './explanation/index.js';
+import { LLMProviderFactory } from './llm/index.js';
 import { ChangePointDetector, FusionEngine } from './fusion/index.js';
 import type { ModelServingClient } from './modelserving_client/index.js';
 import {
@@ -76,7 +77,7 @@ function buildFullyWiredService(
     new DeviceBundleAdapter(),
     new LinguisticBundleAdapter(),
     new ElicitationBundleAdapter(),
-    new LlmNarrativeAdapter(new StubLlmProvider()),
+    new LlmNarrativeAdapter(LLMProviderFactory.create()),
     new InMemoryAccommodationDisclosureRepository(),
     undefined, // SessionEventBus -- exercised separately in api/sessionEventBus.test.ts
     auditLogRepository,
@@ -261,7 +262,7 @@ describe('Full system integration: the candidate identification pipeline end to 
       undefined,
       undefined,
       undefined,
-      new LlmNarrativeAdapter(new StubLlmProvider()),
+      new LlmNarrativeAdapter(LLMProviderFactory.create()),
     );
     const now = new Date('2026-07-10T12:00:00.000Z');
     const sessionId = 'integration-session-2';

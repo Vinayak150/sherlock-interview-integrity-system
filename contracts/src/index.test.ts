@@ -219,13 +219,29 @@ describe('Claim bundle payload schemas (RFC §4-A, Plan M2)', () => {
     expect(() => ClaimSignalNameSchema.parse('face_match')).toThrow();
   });
 
-  it('accepts a matched ClaimMatchValue', () => {
+  it('accepts a matched ClaimMatchValue with semantic metadata', () => {
+    const parsed = ClaimMatchValueSchema.parse({
+      matched: true,
+      observedValue: 'jane@example.com',
+      claimedValue: 'jane@example.com',
+      similarity: 0.97,
+      confidence: 0.95,
+      matchedFields: ['email', 'email_domain'],
+    });
+    expect(parsed.matched).toBe(true);
+    expect(parsed.similarity).toBe(0.97);
+    expect(parsed.matchedFields).toEqual(['email', 'email_domain']);
+  });
+
+  it('accepts a matched ClaimMatchValue without semantic metadata for backward compatibility', () => {
     const parsed = ClaimMatchValueSchema.parse({
       matched: true,
       observedValue: 'jane@example.com',
       claimedValue: 'jane@example.com',
     });
     expect(parsed.matched).toBe(true);
+    expect(parsed.similarity).toBeNull();
+    expect(parsed.matchedFields).toEqual([]);
   });
 
   it('accepts a ClaimMatchValue with null observed/claimed values (nothing to compare)', () => {

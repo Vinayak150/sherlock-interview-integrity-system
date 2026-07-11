@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ChangePointDetector } from '../../fusion/index.js';
 import type { ModelServingClient } from '../../modelserving_client/index.js';
-import { ModelServingUnavailableError } from '../../modelserving_client/index.js';
+import { ModelServingNoSpeechError, ModelServingUnavailableError } from '../../modelserving_client/index.js';
 import { EmbeddingSelfConsistencyTracker } from '../embeddingSelfConsistency.js';
 import { AudioBundleAdapter } from './audioBundleAdapter.js';
 
@@ -60,6 +60,29 @@ describe('AudioBundleAdapter', () => {
     expect(consistency).toMatchObject({ healthStatus: 'OK' });
     const changePoint = events.find((e) => e.signalName === 'voice_embedding_change_point');
     expect(changePoint?.value).toMatchObject({ detected: false });
+  });
+
+  it('reports NO_SIGNAL_DETECTED when model-serving finds no usable speech', async () => {
+    const adapter = buildAdapter(
+      fakeClient({
+        extractVoiceEmbedding: async () => {
+          throw new ModelServingNoSpeechError('NO_SPEECH_DETECTED', 'no speech');
+        },
+      }),
+    );
+
+    const events = await adapter.buildEvidenceEvents(
+      'session-1',
+      { audioPayload: new Uint8Array([1]) },
+      OCCURRED_AT,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      signalName: 'voice_embedding_self_consistency',
+      healthStatus: 'NO_SIGNAL_DETECTED',
+      value: { similarity: null, isFirstObservation: true },
+    });
   });
 
   it('reports SERVICE_UNAVAILABLE when model-serving is unreachable', async () => {

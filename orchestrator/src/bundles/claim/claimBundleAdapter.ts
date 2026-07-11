@@ -3,7 +3,8 @@ import type { ClaimMatchValue, ClaimPresenceValue, NewEvidenceEvent } from '@she
 import type { BundleAdapter } from '../types.js';
 import { makeEvidenceEvent } from '../types.js';
 import type { AtsClient, IdentityClaimRecord } from './atsClient.js';
-import { AtsRecordNotFoundError } from './atsClient.js';
+import { AtsRecordNotFoundError, InMemoryAtsClient } from './atsClient.js';
+import { buildSemanticClaimMatchValue } from './semanticIdentityMatcher.js';
 
 /**
  * What was actually observed at call time, to compare against the filed
@@ -27,27 +28,6 @@ const CLAIM_SERVICE_UNAVAILABLE_SIGNAL_NAMES = [
   'account_history_available',
 ] as const;
 
-function normalize(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function emailDomain(email: string): string {
-  const at = email.lastIndexOf('@');
-  return normalize(at === -1 ? email : email.slice(at + 1));
-}
-
-function buildMatchValue(
-  observed: string | null,
-  claimed: string | null,
-  matches: (a: string, b: string) => boolean,
-): ClaimMatchValue {
-  return {
-    matched: observed !== null && claimed !== null && matches(observed, claimed),
-    observedValue: observed,
-    claimedValue: claimed,
-  };
-}
-
 /**
  * Normalizes pre-call identity-claim signals (RFC §4-A) into
  * signal-health-tagged `EvidenceEvent`s. All six §4-A signals this
@@ -64,6 +44,18 @@ export class ClaimBundleAdapter implements BundleAdapter<ObservedIdentityClaim> 
 
   constructor(private readonly atsClient: AtsClient) {}
 
+  /**
+   * When the wired ATS is the in-memory pilot stub, returns every seeded
+   * candidate id so the internal ranking engine can score alternative
+   * hypotheses. Production ATS integrations return an empty list.
+   */
+  listKnownCandidateIds(): readonly string[] {
+    if (this.atsClient instanceof InMemoryAtsClient) {
+      return this.atsClient.listCandidateIds();
+    }
+    return [];
+  }
+
   async buildEvidenceEvents(
     sessionId: string,
     observed: ObservedIdentityClaim,
@@ -79,34 +71,39 @@ export class ClaimBundleAdapter implements BundleAdapter<ObservedIdentityClaim> 
       throw error;
     }
 
+    const aliases = record.aliases ?? [];
+
     return [
       this.buildMatchEvent(
         sessionId,
         'display_name_match',
-        buildMatchValue(
+        buildSemanticClaimMatchValue(
           observed.displayName,
           record.applicationName,
-          (a, b) => normalize(a) === normalize(b),
+          'display_name',
+          aliases,
         ),
         occurredAt,
       ),
       this.buildMatchEvent(
         sessionId,
         'email_domain_match',
-        buildMatchValue(
+        buildSemanticClaimMatchValue(
           observed.joinEmail,
           record.applicationEmail,
-          (a, b) => emailDomain(a) === emailDomain(b),
+          'email',
+          aliases.filter((alias) => alias.includes('@')),
         ),
         occurredAt,
       ),
       this.buildMatchEvent(
         sessionId,
         'calendar_invite_match',
-        buildMatchValue(
+        buildSemanticClaimMatchValue(
           observed.calendarAttendeeEmail,
           record.calendarInviteAttendeeEmail,
-          (a, b) => normalize(a) === normalize(b),
+          'calendar_invite',
+          aliases.filter((alias) => alias.includes('@')),
         ),
         occurredAt,
       ),
@@ -152,7 +149,9 @@ export class ClaimBundleAdapter implements BundleAdapter<ObservedIdentityClaim> 
   private buildPresenceEvent(
     sessionId: string,
     signalName:
-      'reference_photo_available' | 'prior_id_verification_available' | 'account_history_available',
+      | 'reference_photo_available'
+      | 'prior_id_verification_available'
+      | 'account_history_available',
     available: boolean,
     occurredAt: Date,
   ): NewEvidenceEvent {

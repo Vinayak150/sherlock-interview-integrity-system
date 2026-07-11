@@ -6,7 +6,11 @@ import type {
 
 import type { ChangePointDetector } from '../../fusion/index.js';
 import type { ModelServingClient } from '../../modelserving_client/index.js';
-import { ModelServingUnavailableError } from '../../modelserving_client/index.js';
+import {
+  ModelServingLivenessError,
+  ModelServingNoFaceError,
+  ModelServingUnavailableError,
+} from '../../modelserving_client/index.js';
 import type { EmbeddingSelfConsistencyTracker } from '../embeddingSelfConsistency.js';
 import type { BundleAdapter } from '../types.js';
 import { makeEvidenceEvent } from '../types.js';
@@ -22,15 +26,11 @@ export interface VisualBundleInput {
  * The Visual Bundle Adapter (RFC §4-C; Plan M9): face-embedding
  * self-consistency ("strong, reference-independent") and visual liveness,
  * plus the CUSUM change-point check on the self-consistency stream (RFC
- * §5). Deliberately scoped to these two signals for this milestone — lip-
- * sync-to-phoneme consistency and dedicated deepfake-artifact classifiers
- * (also §4-C) are not implemented; no model-serving endpoint exists for
- * them, and inventing one would mean fabricating a signal this codebase
- * cannot honestly compute.
+ * §5).
  *
- * Model-serving unavailability (RFC §13: "does not crash sessions") maps
- * both signals to `SERVICE_UNAVAILABLE`, exactly like the Claim Bundle
- * Adapter's ATS-outage handling (M2).
+ * Model-serving unavailability maps to `SERVICE_UNAVAILABLE`. A frame with no
+ * detectable face maps to `NO_SIGNAL_DETECTED` via `ModelServingNoFaceError`
+ * (RFC §13: distinct from infra outage).
  */
 export class VisualBundleAdapter implements BundleAdapter<VisualBundleInput> {
   readonly bundle = 'visual' as const;
@@ -46,16 +46,35 @@ export class VisualBundleAdapter implements BundleAdapter<VisualBundleInput> {
     input: VisualBundleInput,
     occurredAt: Date = new Date(),
   ): Promise<readonly NewEvidenceEvent[]> {
-    let embedding: readonly number[];
+    let embedding: readonly number[] | null = null;
     let liveness: { readonly score: number; readonly isLive: boolean };
+
     try {
-      const [embeddingResult, livenessResult] = await Promise.all([
-        this.modelServingClient.extractFaceEmbedding(sessionId, input.framePayload),
-        this.modelServingClient.detectVisualLiveness(sessionId, input.framePayload),
-      ]);
-      embedding = embeddingResult.embedding;
+      const livenessResult = await this.modelServingClient.detectVisualLiveness(
+        sessionId,
+        input.framePayload,
+      );
       liveness = livenessResult;
     } catch (error) {
+      if (error instanceof ModelServingLivenessError) {
+        return this.buildNoFaceEvents(sessionId, occurredAt, null);
+      }
+      if (error instanceof ModelServingUnavailableError) {
+        return this.buildServiceUnavailableEvents(sessionId, occurredAt, error.message);
+      }
+      throw error;
+    }
+
+    try {
+      const embeddingResult = await this.modelServingClient.extractFaceEmbedding(
+        sessionId,
+        input.framePayload,
+      );
+      embedding = embeddingResult.embedding;
+    } catch (error) {
+      if (error instanceof ModelServingNoFaceError) {
+        return this.buildNoFaceEvents(sessionId, occurredAt, liveness);
+      }
       if (error instanceof ModelServingUnavailableError) {
         return this.buildServiceUnavailableEvents(sessionId, occurredAt, error.message);
       }
@@ -108,6 +127,54 @@ export class VisualBundleAdapter implements BundleAdapter<VisualBundleInput> {
       );
     }
 
+    return events;
+  }
+
+  private buildNoFaceEvents(
+    sessionId: string,
+    occurredAt: Date,
+    liveness: { readonly score: number; readonly isLive: boolean } | null,
+  ): NewEvidenceEvent[] {
+    const consistencyValue: EmbeddingSelfConsistencyValue = {
+      similarity: null,
+      isFirstObservation: true,
+    };
+
+    const events: NewEvidenceEvent[] = [
+      makeEvidenceEvent({
+        sessionId,
+        bundle: this.bundle,
+        signalName: 'face_embedding_self_consistency',
+        healthStatus: 'NO_SIGNAL_DETECTED',
+        value: consistencyValue,
+        occurredAt,
+      }),
+    ];
+
+    if (liveness === null) {
+      events.push(
+        makeEvidenceEvent({
+          sessionId,
+          bundle: this.bundle,
+          signalName: 'visual_liveness',
+          healthStatus: 'NO_SIGNAL_DETECTED',
+          value: { score: 0, isLive: false } satisfies VisualLivenessValue,
+          occurredAt,
+        }),
+      );
+      return events;
+    }
+
+    events.push(
+      makeEvidenceEvent({
+        sessionId,
+        bundle: this.bundle,
+        signalName: 'visual_liveness',
+        healthStatus: 'OK',
+        value: { score: liveness.score, isLive: liveness.isLive } satisfies VisualLivenessValue,
+        occurredAt,
+      }),
+    );
     return events;
   }
 

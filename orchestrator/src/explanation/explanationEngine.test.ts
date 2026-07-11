@@ -2,6 +2,12 @@ import type { EvidenceEvent } from '@sherlock/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_HALF_LIFE_MS } from '../fusion/index.js';
+import {
+  computeSessionContradictionMetrics,
+  indexEvidenceEvents,
+} from '../candidateConfidence/contradictionMetrics.js';
+import { computeSessionCrossModalMetrics } from '../candidateConfidence/crossModalConsistency.js';
+import { buildSessionEvidenceClassification, buildParticipantClassification } from '../evidenceClassification/index.js';
 import type { FusionPosterior } from '../fusion/index.js';
 import { ExplanationEngine } from './explanationEngine.js';
 
@@ -318,5 +324,95 @@ describe('ExplanationEngine.buildReport', () => {
 
   it('rejects a non-positive maxTopSignals', () => {
     expect(() => new ExplanationEngine({ maxTopSignals: -1 })).toThrow(RangeError);
+  });
+
+  it('builds a structured summary with strongest support, conflicts, gaps, confidence, uncertainty, and recommendation', () => {
+    const report = engine.buildReport({
+      sessionId: 'session-1',
+      lifecycleState: 'DISQUALIFIED',
+      posterior: posterior({ probability: 0.72 }),
+      events: [
+        evidenceEvent({
+          signalName: 'email_domain_match',
+          value: { matched: true, observedValue: 'a', claimedValue: 'a' },
+        }),
+        evidenceEvent({
+          signalName: 'display_name_match',
+          value: { matched: false, observedValue: 'a', claimedValue: 'b' },
+        }),
+        evidenceEvent({
+          signalName: 'calendar_invite_match',
+          healthStatus: 'NO_SIGNAL_DETECTED',
+          value: { matched: false, observedValue: null, claimedValue: null },
+        }),
+      ],
+      generatedAt: T0,
+    });
+
+    expect(report.summary.confidence).toBe(0.72);
+    expect(report.summary.uncertainty).toBeCloseTo(0.5, 5);
+    expect(report.summary.recommendation).toBe('MANDATORY_REVIEW');
+    expect(report.summary.strongestSupportingEvidence).toHaveLength(1);
+    expect(report.summary.strongestSupportingEvidence[0]?.outcome).toBe('SUPPORTS');
+    expect(report.summary.conflictingEvidence).toHaveLength(1);
+    expect(report.summary.missingEvidence).toHaveLength(1);
+    expect(report.summary.strongestSupportingEvidence[0]?.signalName).toBe('email_domain_match');
+    expect(report.summary.contradictionReasoning).toBeNull();
+    expect(report.summary.crossModalReasoning).toBeNull();
+  });
+
+  it('recommends deferring to ordinary judgment for abstention-grade UNKNOWN sessions', () => {
+    const report = engine.buildReport({
+      sessionId: 'session-1',
+      lifecycleState: 'UNKNOWN',
+      posterior: posterior({ probability: 0.4 }),
+      events: [],
+      generatedAt: T0,
+    });
+
+    expect(report.summary.recommendation).toBe('DEFER_TO_ORDINARY_JUDGMENT');
+  });
+
+  it('enriches the summary with precomputed cross-modal metrics', () => {
+    const face = evidenceEvent({
+      bundle: 'visual',
+      signalName: 'face_embedding_self_consistency',
+      value: { similarity: 0.92, isFirstObservation: false },
+    });
+    const voice = evidenceEvent({
+      bundle: 'audio',
+      signalName: 'voice_embedding_self_consistency',
+      value: { similarity: 0.88, isFirstObservation: false },
+    });
+
+    const classified = buildSessionEvidenceClassification('session-1', T0, [
+      buildParticipantClassification('candidate-1', [face, voice]),
+    ]);
+    const eventsById = indexEvidenceEvents([face, voice]);
+    const contradictionMetrics = computeSessionContradictionMetrics(classified, eventsById);
+    const crossModalMetrics = computeSessionCrossModalMetrics(
+      classified,
+      eventsById,
+      contradictionMetrics,
+    );
+
+    const report = engine.buildReport({
+      sessionId: 'session-1',
+      lifecycleState: 'POSSIBLE_CANDIDATE',
+      posterior: posterior(),
+      events: [face, voice],
+      generatedAt: T0,
+      crossModalMetrics,
+      topParticipantId: 'candidate-1',
+    });
+
+    const reasoning = report.summary.crossModalReasoning;
+    const participant = crossModalMetrics.byParticipant[0]!;
+
+    expect(reasoning).not.toBeNull();
+    expect(reasoning?.crossModalConsistency).toBe(participant.crossModalConsistency);
+    expect(reasoning?.crossModalConfidence).toBe(participant.crossModalConfidence);
+    expect(reasoning?.crossModalDisagreement).toBe(participant.crossModalDisagreement);
+    expect(reasoning?.modalities).toBe(participant.modalities);
   });
 });

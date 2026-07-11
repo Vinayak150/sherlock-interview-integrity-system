@@ -1,9 +1,72 @@
 import type { StreamDecision } from '../../lib/decisionData.js';
-import { formatPercent, formatTimestamp } from '../../lib/utils.js';
+import { buildExplanationView } from '../../lib/reasoningPresentation.js';
+import { formatTimestamp } from '../../lib/utils.js';
 import { EmptyState } from '../EmptyState.js';
+import { Badge } from '../ui/badge.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card.js';
 import { Input } from '../ui/input.js';
 import { Skeleton } from '../ui/skeleton.js';
+
+function classificationVariant(
+  outcome: string,
+): 'success' | 'danger' | 'warning' | 'muted' {
+  switch (outcome) {
+    case 'SUPPORTS':
+      return 'success';
+    case 'CONTRADICTS':
+      return 'danger';
+    case 'MISSING':
+      return 'warning';
+    default:
+      return 'muted';
+  }
+}
+
+function EvidenceList({
+  title,
+  events,
+  emptyLabel,
+  outcomeLabel,
+}: {
+  readonly title: string;
+  readonly events: readonly {
+    readonly id: string;
+    readonly bundle: string;
+    readonly signalName: string;
+    readonly occurredAt: string;
+  }[];
+  readonly emptyLabel: string;
+  readonly outcomeLabel: 'SUPPORTS' | 'CONTRADICTS' | 'MISSING';
+}): React.JSX.Element {
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-semibold text-foreground">{title}</h3>
+      {events.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ul className="space-y-2">
+          {events.map((event) => (
+            <li
+              key={event.id}
+              className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm dark:bg-muted/20"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-foreground">{event.signalName}</span>
+                <span className="text-muted-foreground">· {event.bundle}</span>
+                <Badge variant={classificationVariant(outcomeLabel)} aria-label={outcomeLabel}>
+                  {outcomeLabel.toLowerCase()}
+                </Badge>
+              </div>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {formatTimestamp(event.occurredAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function ExplanationPanel({
   decision,
@@ -12,42 +75,40 @@ export function ExplanationPanel({
   readonly decision: StreamDecision | null;
   readonly loading: boolean;
 }): React.JSX.Element {
-  const topSignals = decision?.evidenceRef.events.slice(0, 5) ?? [];
-  const contradictions =
-    decision?.evidenceRef.events.filter((event) => event.healthStatus === 'SERVICE_UNAVAILABLE') ??
-    [];
+  const view = buildExplanationView(decision);
 
   return (
-    <Card className="flex max-h-[32rem] flex-col">
+    <Card className="flex max-h-[40rem] flex-col">
       <CardHeader>
         <CardTitle>Explanation</CardTitle>
-        <CardDescription>
-          Structured report details available from the live decision stream
-        </CardDescription>
+        <CardDescription>Structured fields derived from the live decision stream</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 space-y-5 overflow-y-auto pr-2">
         {loading ? (
           <Skeleton className="h-48 w-full" />
-        ) : decision === null ? (
+        ) : view === null ? (
           <EmptyState variant="waiting-activity" className="border-none shadow-none" />
         ) : (
           <>
             <section>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-900">Evidence ranking</h3>
-              {topSignals.length === 0 ? (
-                <p className="text-sm text-zinc-500">No ranked signals available yet.</p>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Executive Summary</h3>
+              <p className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-sm text-foreground dark:bg-muted/20">
+                {view.executiveSummary}
+              </p>
+            </section>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Reasoning</h3>
+              {view.reasoning.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No bundle contributions available.</p>
               ) : (
                 <ul className="space-y-2">
-                  {topSignals.map((signal) => (
+                  {view.reasoning.map((line) => (
                     <li
-                      key={signal.id}
-                      className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm"
+                      key={line}
+                      className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground dark:bg-muted/20"
                     >
-                      <span className="font-medium text-zinc-900">{signal.signalName}</span>
-                      <span className="text-zinc-500"> · {signal.bundle}</span>
-                      <span className="block text-xs text-zinc-500">
-                        {formatTimestamp(signal.occurredAt)}
-                      </span>
+                      {line}
                     </li>
                   ))}
                 </ul>
@@ -55,69 +116,33 @@ export function ExplanationPanel({
             </section>
 
             <section>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-900">Narrative</h3>
-              <p className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-3 text-sm text-zinc-600">
-                The full Evidence Report narrative is generated server-side but is not exposed via
-                the dashboard API. Use the structured fields below from the live decision stream.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-900">Supporting observations</h3>
-              <div className="grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-                <p>
-                  Probability:{' '}
-                  <span className="font-medium">
-                    {formatPercent(decision.evidenceRef.posterior.probability)}
-                  </span>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Recommendation</h3>
+              <p className="text-sm text-foreground">{view.recommendation}</p>
+              {decision?.elicitationTrigger !== null && decision?.elicitationTrigger !== undefined && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Elicitation: {decision.elicitationTrigger.challengeType.replaceAll('_', ' ').toLowerCase()}
                 </p>
-                <p>
-                  Credible interval:{' '}
-                  <span className="font-medium">
-                    {formatPercent(decision.evidenceRef.posterior.credibleInterval.lower)} –{' '}
-                    {formatPercent(decision.evidenceRef.posterior.credibleInterval.upper)}
-                  </span>
-                </p>
-                <p>
-                  Abstained:{' '}
-                  <span className="font-medium">{decision.abstained ? 'Yes' : 'No'}</span>
-                </p>
-                <p>
-                  Ambiguous:{' '}
-                  <span className="font-medium">{decision.ambiguous ? 'Yes' : 'No'}</span>
-                </p>
-              </div>
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-900">Contradictions</h3>
-              {contradictions.length === 0 ? (
-                <p className="text-sm text-zinc-500">
-                  No unavailable-service contradictions listed.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {contradictions.map((item) => (
-                    <li
-                      key={item.id}
-                      className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-sm text-orange-800"
-                    >
-                      {item.bundle}/{item.signalName} — service unavailable
-                    </li>
-                  ))}
-                </ul>
               )}
             </section>
 
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-900">Recommendations</h3>
-              <p className="text-sm text-zinc-700">
-                {decision.reviewerRecommendation.replaceAll('_', ' ').toLowerCase()}
-                {decision.elicitationTrigger !== null
-                  ? ` · Elicitation: ${decision.elicitationTrigger.challengeType.replaceAll('_', ' ').toLowerCase()}`
-                  : ''}
-              </p>
-            </section>
+            <EvidenceList
+              title="Supporting Evidence"
+              events={view.supportingEvidence}
+              emptyLabel="No supporting evidence classified."
+              outcomeLabel="SUPPORTS"
+            />
+            <EvidenceList
+              title="Conflicting Evidence"
+              events={view.conflictingEvidence}
+              emptyLabel="No conflicting evidence classified."
+              outcomeLabel="CONTRADICTS"
+            />
+            <EvidenceList
+              title="Missing Evidence"
+              events={view.missingEvidence}
+              emptyLabel="No missing evidence signals."
+              outcomeLabel="MISSING"
+            />
           </>
         )}
       </CardContent>
@@ -155,7 +180,7 @@ export function AccommodationForm({
           type="button"
           onClick={onSubmit}
           disabled={disabled || reason.trim() === ''}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
         >
           Record disclosure
         </button>

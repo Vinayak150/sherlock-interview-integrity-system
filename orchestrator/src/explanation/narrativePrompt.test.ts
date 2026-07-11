@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildNarrativePrompt } from './narrativePrompt.js';
+import { emptyStructuredEvidenceSummary } from './evidenceSummary.js';
 import type { EvidenceReport } from './types.js';
 
 function report(overrides: Partial<EvidenceReport> = {}): EvidenceReport {
+  const { summary: summaryOverride, ...rest } = overrides;
+  const baseSummary = emptyStructuredEvidenceSummary({
+    confidence: rest.probability ?? 0.812,
+  });
   return {
     sessionId: 'session-1',
     generatedAt: new Date('2026-07-10T12:00:00.000Z'),
@@ -13,7 +18,8 @@ function report(overrides: Partial<EvidenceReport> = {}): EvidenceReport {
     contradictoryEvidence: [],
     missingEvidence: [],
     alternativeHypotheses: [],
-    ...overrides,
+    summary: summaryOverride ?? baseSummary,
+    ...rest,
   };
 }
 
@@ -80,7 +86,7 @@ describe('buildNarrativePrompt', () => {
   it('renders "(none)" placeholders for empty sections rather than omitting them', () => {
     const prompt = buildNarrativePrompt(report());
     const noneCount = prompt.split('(none)').length - 1;
-    expect(noneCount).toBe(3); // top signals, contradictory evidence, missing evidence
+    expect(noneCount).toBe(6);
   });
 
   it('is deterministic for the same report', () => {

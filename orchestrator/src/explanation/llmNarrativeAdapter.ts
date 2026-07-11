@@ -1,5 +1,5 @@
-import type { LlmProvider } from './llmProvider.js';
-import { buildNarrativePrompt } from './narrativePrompt.js';
+import type { LLMProvider } from '../llm/index.js';
+import { buildLLMExplanationRequest } from '../llm/requestBuilder.js';
 import { validateNarrative } from './narrativeValidator.js';
 import type { EvidenceReport } from './types.js';
 
@@ -27,7 +27,7 @@ export class LlmNarrativeAdapter {
   private readonly maxAttempts: number;
 
   constructor(
-    private readonly provider: LlmProvider,
+    private readonly provider: LLMProvider,
     options: LlmNarrativeAdapterOptions = {},
   ) {
     this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -37,12 +37,13 @@ export class LlmNarrativeAdapter {
   }
 
   async generateNarrative(report: EvidenceReport): Promise<string | null> {
-    const prompt = buildNarrativePrompt(report);
+    const request = buildLLMExplanationRequest(report);
 
     for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
       let candidate: string;
       try {
-        candidate = await this.provider.generateNarrative(prompt);
+        const response = await this.provider.generateExplanation(request);
+        candidate = response.reviewerExplanation;
       } catch {
         // RFC §13: "LLM unavailable" degrades gracefully -- never propagated as an error.
         return null;

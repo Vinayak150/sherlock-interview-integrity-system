@@ -59,7 +59,13 @@ export interface FusionPosterior {
   readonly sessionId: string;
   readonly evaluatedAt: Date;
   readonly logOdds: number;
+  /** Effective confidence used by lifecycle, decision, and explanation layers. */
   readonly probability: number;
+  /**
+   * Fusion-engine probability before optional post-hoc calibration. When
+   * calibration is disabled this equals `probability`.
+   */
+  readonly rawProbability?: number;
   readonly beta: BetaParameters;
   readonly credibleInterval: CredibleInterval;
   readonly bundleContributions: readonly BundleContribution[];

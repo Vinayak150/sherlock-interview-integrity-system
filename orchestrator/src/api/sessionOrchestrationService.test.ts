@@ -11,7 +11,8 @@ import {
   MetadataBundleAdapter,
   VisualBundleAdapter,
 } from '../bundles/index.js';
-import { LlmNarrativeAdapter, StubLlmProvider } from '../explanation/index.js';
+import { LlmNarrativeAdapter } from '../explanation/index.js';
+import { LLMProviderFactory } from '../llm/index.js';
 import {
   AppealNotFoundError,
   InMemoryAppealRepository,
@@ -666,7 +667,7 @@ describe('SessionOrchestrationService narrative wiring (Plan M12)', () => {
   });
 
   it('is null whenever no report is produced (no alert this tick), even with an adapter configured', async () => {
-    const service = buildServiceWithNarrative(new LlmNarrativeAdapter(new StubLlmProvider()));
+    const service = buildServiceWithNarrative(new LlmNarrativeAdapter(LLMProviderFactory.create()));
     const now = new Date('2026-07-10T12:00:00.000Z');
 
     const result = await service.ingestVisualAudioEvidence(
@@ -681,7 +682,7 @@ describe('SessionOrchestrationService narrative wiring (Plan M12)', () => {
   });
 
   it('produces a validated narrative when a report is produced and an adapter is configured', async () => {
-    const service = buildServiceWithNarrative(new LlmNarrativeAdapter(new StubLlmProvider()));
+    const service = buildServiceWithNarrative(new LlmNarrativeAdapter(LLMProviderFactory.create()));
     const disqualified = await disqualifySession(service, new Date('2026-07-10T12:00:00.000Z'));
 
     expect(disqualified.report).not.toBeNull();
@@ -691,12 +692,20 @@ describe('SessionOrchestrationService narrative wiring (Plan M12)', () => {
 
   it('"LLM unavailable" (RFC §13): narrative degrades to null, but the Decision and structured Report are entirely unaffected', async () => {
     const unreachableProvider = {
-      generateNarrative: () => Promise.reject(new Error('LLM API down')),
+      generateExplanation: () => Promise.reject(new Error('LLM API down')),
+      healthCheck: async () => ({
+        status: 'unhealthy' as const,
+        provider: 'mock',
+        version: '0',
+        supportsStructuredOutput: true,
+      }),
+      providerName: () => 'mock',
+      supportsStructuredOutput: () => true,
     };
     const now = new Date('2026-07-10T12:00:00.000Z');
 
     const withNarrative = await disqualifySession(
-      buildServiceWithNarrative(new LlmNarrativeAdapter(new StubLlmProvider())),
+      buildServiceWithNarrative(new LlmNarrativeAdapter(LLMProviderFactory.create())),
       now,
     );
     const withoutLlm = await disqualifySession(

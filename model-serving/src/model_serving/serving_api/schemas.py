@@ -44,13 +44,52 @@ class EmbeddingResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class VoiceEmbeddingResponse(EmbeddingResponse):
+    """Backward-compatible superset of `EmbeddingResponse` with speaker metadata."""
+
+    confidence: float
+    speech_duration: float = Field(serialization_alias="speechDuration")
+    speech_ratio: float = Field(serialization_alias="speechRatio")
+    inference_latency: float = Field(serialization_alias="inferenceLatency")
+
+    model_config = {"populate_by_name": True}
+
+
 class LivenessResponse(BaseModel):
     session_id: str = Field(serialization_alias="sessionId")
     score: float
     is_live: bool = Field(serialization_alias="isLive")
+    liveness_score: float = Field(serialization_alias="livenessScore")
+    spoof_probability: float = Field(serialization_alias="spoofProbability")
+    confidence: float
+    inference_latency: float = Field(serialization_alias="inferenceLatency")
+
+    model_config = {"populate_by_name": True}
+
+
+class LivenessErrorResponse(BaseModel):
+    error: str
+    session_id: str = Field(serialization_alias="sessionId")
+    message: str
 
     model_config = {"populate_by_name": True}
 
 
 class HealthResponse(BaseModel):
     status: str
+
+
+class NoFaceResponse(BaseModel):
+    error: str
+    session_id: str = Field(serialization_alias="sessionId")
+    message: str
+
+    model_config = {"populate_by_name": True}
+
+
+class VoiceErrorResponse(BaseModel):
+    error: str
+    session_id: str = Field(serialization_alias="sessionId")
+    message: str
+
+    model_config = {"populate_by_name": True}

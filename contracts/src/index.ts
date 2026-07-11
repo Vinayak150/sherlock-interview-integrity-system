@@ -167,6 +167,12 @@ export const ClaimMatchValueSchema = z.object({
   matched: z.boolean(),
   observedValue: z.string().trim().min(1).nullable(),
   claimedValue: z.string().trim().min(1).nullable(),
+  /** Semantic similarity in `[0, 1]` when a comparison was performed; `null` when nothing was observed to compare. */
+  similarity: z.number().min(0).max(1).nullable().default(null),
+  /** Calibrated confidence in the semantic match score; `null` when nothing was observed to compare. */
+  confidence: z.number().min(0).max(1).nullable().default(null),
+  /** Which identity facets contributed to the match (e.g. `nickname`, `initials`, `email_domain`). */
+  matchedFields: z.array(z.string().trim().min(1)).default([]),
 });
 
 export type ClaimMatchValue = z.infer<typeof ClaimMatchValueSchema>;

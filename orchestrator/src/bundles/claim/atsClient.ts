@@ -20,6 +20,8 @@ export interface IdentityClaimRecord {
   readonly applicationName: string;
   readonly applicationEmail: string;
   readonly calendarInviteAttendeeEmail: string | null;
+  /** Optional filed aliases (resume name, maiden name, preferred name) for semantic matching. */
+  readonly aliases?: readonly string[];
   readonly hasReferencePhoto: boolean;
   readonly hasPriorIdVerification: boolean;
   readonly hasAccountHistory: boolean;
@@ -71,5 +73,10 @@ export class InMemoryAtsClient implements AtsClient {
       throw new AtsRecordNotFoundError(candidateId);
     }
     return record;
+  }
+
+  /** Pilot/demo helper: enumerate seeded candidates for internal multi-hypothesis ranking. */
+  listCandidateIds(): readonly string[] {
+    return [...this.records.keys()];
   }
 }

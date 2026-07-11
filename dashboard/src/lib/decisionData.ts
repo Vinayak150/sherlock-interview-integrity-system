@@ -1,4 +1,8 @@
 import type { LifecycleState } from '../liveBadgeLogic.js';
+import {
+  classifyEvidenceEvent,
+  estimateLogLikelihoodImpact,
+} from './signalClassification.js';
 
 /** Dashboard-local view of SSE `Decision` payloads (dates arrive as ISO strings). */
 export interface StreamDecision {
@@ -24,6 +28,7 @@ export interface StreamDecision {
       readonly probability: number;
       readonly logOdds: number;
       readonly evaluatedAt: string;
+      readonly rawProbability?: number;
       readonly credibleInterval: {
         readonly lower: number;
         readonly upper: number;
@@ -46,6 +51,7 @@ export interface EvidenceEventView {
   readonly healthStatus: 'OK' | 'NO_SIGNAL_DETECTED' | 'SERVICE_UNAVAILABLE';
   readonly occurredAt: string;
   readonly recordedAt: string;
+  readonly value: unknown;
 }
 
 export type TimelineEventType =
@@ -61,6 +67,10 @@ export interface TimelineEvent {
   readonly timestamp: string;
   readonly title: string;
   readonly description: string;
+  readonly evidenceLabel?: string;
+  readonly classification?: 'SUPPORTS' | 'CONTRADICTS' | 'NEUTRAL' | 'MISSING';
+  readonly confidenceImpact?: number | null;
+  readonly currentConfidence?: number | null;
 }
 
 const LIFECYCLE_STATES = new Set<string>([
@@ -103,6 +113,7 @@ function parseEvidenceEvent(value: unknown): EvidenceEventView | null {
     healthStatus: health,
     occurredAt: readString(value.occurredAt),
     recordedAt: readString(value.recordedAt),
+    value: value.value,
   };
 }
 
@@ -175,6 +186,10 @@ export function parseStreamDecision(value: unknown): StreamDecision | null {
         probability: readNumber(posteriorRaw.probability),
         logOdds: readNumber(posteriorRaw.logOdds),
         evaluatedAt: readString(posteriorRaw.evaluatedAt),
+        rawProbability:
+          posteriorRaw.rawProbability === undefined
+            ? undefined
+            : readNumber(posteriorRaw.rawProbability, readNumber(posteriorRaw.probability)),
         credibleInterval: {
           lower: readNumber(intervalRaw.lower),
           upper: readNumber(intervalRaw.upper),
@@ -195,16 +210,82 @@ export function buildTimeline(decisions: readonly StreamDecision[]): readonly Ti
     if (decision === undefined) continue;
     const previous = index > 0 ? decisions[index - 1] : undefined;
     const baseId = `${decision.decidedAt}-${index}`;
+    const currentConfidence = decision.evidenceRef.posterior.probability;
+
+    const previousEventIds = new Set((previous?.evidenceRef.events ?? []).map((event) => event.id));
+    const newEvents = decision.evidenceRef.events.filter((event) => !previousEventIds.has(event.id));
+
+    for (const [eventIndex, event] of newEvents.entries()) {
+      const classification = classifyEvidenceEvent(event);
+      const outcome =
+        classification === 'MISSING'
+          ? null
+          : classification === 'SUPPORTS' || classification === 'CONTRADICTS'
+            ? classification
+            : 'NEUTRAL';
+      const confidenceImpact =
+        outcome === null ? null : estimateLogLikelihoodImpact(event.signalName, outcome);
+
+      events.push({
+        id: `${baseId}-evidence-${event.id}-${String(eventIndex)}`,
+        type: 'evidence_added',
+        timestamp: event.occurredAt || decision.decidedAt,
+        title: 'Evidence',
+        description: `${event.bundle}/${event.signalName}`,
+        evidenceLabel: `${event.bundle} · ${event.signalName}`,
+        classification,
+        confidenceImpact,
+        currentConfidence,
+      });
+
+      if (classification !== 'MISSING') {
+        events.push({
+          id: `${baseId}-classification-${event.id}`,
+          type: 'fusion_updated',
+          timestamp: event.occurredAt || decision.decidedAt,
+          title: 'Classification',
+          description: classification,
+          classification,
+          confidenceImpact,
+          currentConfidence,
+        });
+      }
+
+      if (confidenceImpact !== null) {
+        events.push({
+          id: `${baseId}-impact-${event.id}`,
+          type: 'fusion_updated',
+          timestamp: decision.decidedAt,
+          title: 'Confidence impact',
+          description: `${confidenceImpact >= 0 ? '+' : ''}${confidenceImpact.toFixed(3)} log-LR`,
+          classification,
+          confidenceImpact,
+          currentConfidence,
+        });
+      }
+
+      events.push({
+        id: `${baseId}-confidence-${event.id}`,
+        type: 'decision_generated',
+        timestamp: decision.decidedAt,
+        title: 'Current confidence',
+        description: `${(currentConfidence * 100).toFixed(1)}%`,
+        classification,
+        confidenceImpact,
+        currentConfidence,
+      });
+    }
 
     const previousEventCount = previous?.evidenceRef.events.length ?? 0;
     const newEventCount = decision.evidenceRef.events.length - previousEventCount;
-    if (newEventCount > 0) {
+    if (newEventCount > 0 && newEvents.length === 0) {
       events.push({
-        id: `${baseId}-evidence`,
+        id: `${baseId}-evidence-batch`,
         type: 'evidence_added',
         timestamp: decision.decidedAt,
         title: 'Evidence added',
-        description: `${String(newEventCount)} new signal${newEventCount === 1 ? '' : 's'} recorded`,
+        description: `${String(newEventCount)} signal${newEventCount === 1 ? '' : 's'} recorded`,
+        currentConfidence,
       });
     }
 
@@ -214,6 +295,7 @@ export function buildTimeline(decisions: readonly StreamDecision[]): readonly Ti
       timestamp: decision.evidenceRef.posterior.evaluatedAt || decision.decidedAt,
       title: 'Fusion updated',
       description: `Posterior probability ${(decision.evidenceRef.posterior.probability * 100).toFixed(1)}%`,
+      currentConfidence,
     });
 
     if (previous === undefined || previous.lifecycleState !== decision.lifecycleState) {
@@ -226,6 +308,7 @@ export function buildTimeline(decisions: readonly StreamDecision[]): readonly Ti
           previous === undefined
             ? `Entered ${decision.lifecycleState.replaceAll('_', ' ')}`
             : `${previous.lifecycleState.replaceAll('_', ' ')} → ${decision.lifecycleState.replaceAll('_', ' ')}`,
+        currentConfidence,
       });
     }
 
@@ -235,6 +318,7 @@ export function buildTimeline(decisions: readonly StreamDecision[]): readonly Ti
       timestamp: decision.decidedAt,
       title: 'Decision generated',
       description: `Recommendation: ${decision.reviewerRecommendation.replaceAll('_', ' ').toLowerCase()}`,
+      currentConfidence,
     });
 
     if (decision.alert !== null) {
@@ -244,6 +328,7 @@ export function buildTimeline(decisions: readonly StreamDecision[]): readonly Ti
         timestamp: decision.decidedAt,
         title: 'Explanation created',
         description: decision.alert.reason,
+        currentConfidence,
       });
     }
   }

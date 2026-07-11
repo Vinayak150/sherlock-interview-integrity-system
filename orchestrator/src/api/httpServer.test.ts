@@ -23,6 +23,10 @@ import {
 import { SessionLifecycleStore } from '../routing/index.js';
 import { InMemoryAppealRepository, InMemoryAuditLogRepository } from '../security/index.js';
 import { LifecycleStateManager } from '../statemachine/index.js';
+import {
+  DEFAULT_ISOTONIC_KNOTS,
+  DEFAULT_PLATT_PARAMETERS,
+} from '../calibration/types.js';
 import { createHttpServer } from './httpServer.js';
 import { SessionEventBus } from './sessionEventBus.js';
 import { SessionOrchestrationService } from './sessionOrchestrationService.js';
@@ -94,6 +98,12 @@ describe('createHttpServer', () => {
       modelServing: { baseUrl: 'http://localhost:8081' },
       replicaId: 'test-replica',
       security: { fieldEncryptionKey: 'test-key', dataResidencyRegion: 'us' },
+      confidenceCalibration: {
+        enabled: false,
+        method: 'platt',
+        platt: DEFAULT_PLATT_PARAMETERS,
+        isotonicKnots: DEFAULT_ISOTONIC_KNOTS,
+      },
     });
 
     server = createHttpServer(service, logger);

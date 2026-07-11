@@ -1,4 +1,10 @@
-import { ModelServingUnavailableError, ModelServingValidationError } from './errors.js';
+import {
+  ModelServingLivenessError,
+  ModelServingNoFaceError,
+  ModelServingNoSpeechError,
+  ModelServingUnavailableError,
+  ModelServingValidationError,
+} from './errors.js';
 import type { EmbeddingResult, LivenessResult } from './types.js';
 
 /**
@@ -45,6 +51,87 @@ interface RawLivenessResponse {
   readonly isLive: boolean;
 }
 
+interface RawNoFaceResponse {
+  readonly error: 'NO_FACE';
+  readonly sessionId: string;
+  readonly message: string;
+}
+
+interface RawVoiceErrorResponse {
+  readonly error: string;
+  readonly sessionId: string;
+  readonly message: string;
+}
+
+const VOICE_NO_SIGNAL_ERRORS = new Set([
+  'NO_SPEECH_DETECTED',
+  'CLIP_TOO_SHORT',
+  'OVERLAPPING_SPEAKERS',
+  'NOISY_AUDIO',
+]);
+
+const LIVENESS_NO_SIGNAL_ERRORS = new Set([
+  'NO_FACE_DETECTED',
+  'MULTIPLE_FACES',
+  'LOW_RESOLUTION',
+  'CORRUPTED_FRAME',
+  'UNSUPPORTED_IMAGE_FORMAT',
+]);
+
+function isRawNoFaceResponse(value: unknown): value is RawNoFaceResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { error?: unknown }).error === 'NO_FACE' &&
+    typeof (value as { sessionId?: unknown }).sessionId === 'string'
+  );
+}
+
+function extractNoFaceDetail(body: unknown): RawNoFaceResponse | null {
+  if (isRawNoFaceResponse(body)) {
+    return body;
+  }
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    typeof (body as { detail?: unknown }).detail === 'object' &&
+    (body as { detail?: unknown }).detail !== null &&
+    isRawNoFaceResponse((body as { detail: unknown }).detail)
+  ) {
+    return (body as { detail: RawNoFaceResponse }).detail;
+  }
+  return null;
+}
+
+function isRawVoiceErrorResponse(value: unknown): value is RawVoiceErrorResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { error?: unknown }).error === 'string' &&
+    typeof (value as { sessionId?: unknown }).sessionId === 'string'
+  );
+}
+
+function extractVoiceErrorDetail(body: unknown): RawVoiceErrorResponse | null {
+  if (isRawVoiceErrorResponse(body)) {
+    return body;
+  }
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    typeof (body as { detail?: unknown }).detail === 'object' &&
+    (body as { detail?: unknown }).detail !== null &&
+    isRawVoiceErrorResponse((body as { detail: unknown }).detail)
+  ) {
+    return (body as { detail: RawVoiceErrorResponse }).detail;
+  }
+  return null;
+}
+
+function extractLivenessErrorDetail(body: unknown): RawVoiceErrorResponse | null {
+  return extractVoiceErrorDetail(body);
+}
+
 function isRawEmbeddingResponse(value: unknown): value is RawEmbeddingResponse {
   return (
     typeof value === 'object' &&
@@ -86,7 +173,7 @@ export class HttpModelServingClient implements ModelServingClient {
   }
 
   async extractVoiceEmbedding(sessionId: string, payload: Uint8Array): Promise<EmbeddingResult> {
-    const raw = await this.post('/v1/embeddings/voice', sessionId, payload);
+    const raw = await this.post('/v1/embeddings/voice', sessionId, payload, { voiceErrors: true });
     if (!isRawEmbeddingResponse(raw)) {
       throw new ModelServingUnavailableError('Malformed embedding response from model-serving');
     }
@@ -94,14 +181,19 @@ export class HttpModelServingClient implements ModelServingClient {
   }
 
   async detectVisualLiveness(sessionId: string, payload: Uint8Array): Promise<LivenessResult> {
-    const raw = await this.post('/v1/liveness/visual', sessionId, payload);
+    const raw = await this.post('/v1/liveness/visual', sessionId, payload, { livenessErrors: true });
     if (!isRawLivenessResponse(raw)) {
       throw new ModelServingUnavailableError('Malformed liveness response from model-serving');
     }
     return { sessionId: raw.sessionId, score: raw.score, isLive: raw.isLive };
   }
 
-  private async post(path: string, sessionId: string, payload: Uint8Array): Promise<unknown> {
+  private async post(
+    path: string,
+    sessionId: string,
+    payload: Uint8Array,
+    options: { voiceErrors?: boolean; livenessErrors?: boolean } = {},
+  ): Promise<unknown> {
     if (sessionId.trim() === '') {
       throw new ModelServingValidationError('sessionId must not be empty');
     }
@@ -121,6 +213,23 @@ export class HttpModelServingClient implements ModelServingClient {
       });
 
       if (!response.ok) {
+        const body = await response.json().catch(() => undefined);
+        const noFace = extractNoFaceDetail(body);
+        if (response.status === 404 && noFace !== null) {
+          throw new ModelServingNoFaceError(noFace.message);
+        }
+        if (options.voiceErrors === true) {
+          const voiceError = extractVoiceErrorDetail(body);
+          if (voiceError !== null && VOICE_NO_SIGNAL_ERRORS.has(voiceError.error)) {
+            throw new ModelServingNoSpeechError(voiceError.error, voiceError.message);
+          }
+        }
+        if (options.livenessErrors === true) {
+          const livenessError = extractLivenessErrorDetail(body);
+          if (livenessError !== null && LIVENESS_NO_SIGNAL_ERRORS.has(livenessError.error)) {
+            throw new ModelServingLivenessError(livenessError.error, livenessError.message);
+          }
+        }
         throw new ModelServingUnavailableError(
           `Model-serving responded with status ${response.status} for ${path}`,
         );
@@ -128,7 +237,14 @@ export class HttpModelServingClient implements ModelServingClient {
 
       return await response.json();
     } catch (error) {
-      if (error instanceof ModelServingUnavailableError) throw error;
+      if (
+        error instanceof ModelServingUnavailableError ||
+        error instanceof ModelServingNoFaceError ||
+        error instanceof ModelServingNoSpeechError ||
+        error instanceof ModelServingLivenessError
+      ) {
+        throw error;
+      }
       throw new ModelServingUnavailableError(`Model-serving request to ${path} failed`, error);
     } finally {
       clearTimeout(timeout);

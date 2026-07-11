@@ -2,7 +2,10 @@ import type { EmbeddingSelfConsistencyValue, NewEvidenceEvent } from '@sherlock/
 
 import type { ChangePointDetector } from '../../fusion/index.js';
 import type { ModelServingClient } from '../../modelserving_client/index.js';
-import { ModelServingUnavailableError } from '../../modelserving_client/index.js';
+import {
+  ModelServingNoSpeechError,
+  ModelServingUnavailableError,
+} from '../../modelserving_client/index.js';
 import type { EmbeddingSelfConsistencyTracker } from '../embeddingSelfConsistency.js';
 import type { BundleAdapter } from '../types.js';
 import { makeEvidenceEvent } from '../types.js';
@@ -46,6 +49,9 @@ export class AudioBundleAdapter implements BundleAdapter<AudioBundleInput> {
       );
       embedding = embeddingResult.embedding;
     } catch (error) {
+      if (error instanceof ModelServingNoSpeechError) {
+        return this.buildNoSpeechEvents(sessionId, occurredAt);
+      }
       if (error instanceof ModelServingUnavailableError) {
         return this.buildServiceUnavailableEvents(sessionId, occurredAt, error.message);
       }
@@ -91,6 +97,24 @@ export class AudioBundleAdapter implements BundleAdapter<AudioBundleInput> {
     }
 
     return events;
+  }
+
+  private buildNoSpeechEvents(sessionId: string, occurredAt: Date): NewEvidenceEvent[] {
+    const consistencyValue: EmbeddingSelfConsistencyValue = {
+      similarity: null,
+      isFirstObservation: true,
+    };
+
+    return [
+      makeEvidenceEvent({
+        sessionId,
+        bundle: this.bundle,
+        signalName: 'voice_embedding_self_consistency',
+        healthStatus: 'NO_SIGNAL_DETECTED',
+        value: consistencyValue,
+        occurredAt,
+      }),
+    ];
   }
 
   private buildServiceUnavailableEvents(

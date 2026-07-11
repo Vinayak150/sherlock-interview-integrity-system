@@ -58,15 +58,74 @@ describe('ClaimBundleAdapter', () => {
 
     expect(bySignal.get('display_name_match')).toMatchObject({
       healthStatus: 'OK',
-      value: { matched: true },
+      value: {
+        matched: true,
+        similarity: 1,
+        confidence: 1,
+        matchedFields: expect.arrayContaining(['candidate_name']),
+      },
     });
     expect(bySignal.get('email_domain_match')).toMatchObject({
       healthStatus: 'OK',
-      value: { matched: true },
+      value: {
+        matched: true,
+        similarity: 1,
+        matchedFields: expect.arrayContaining(['email_domain']),
+      },
     });
     expect(bySignal.get('calendar_invite_match')).toMatchObject({
       healthStatus: 'OK',
-      value: { matched: true },
+      value: {
+        matched: true,
+        similarity: 1,
+        matchedFields: expect.arrayContaining(['email']),
+      },
+    });
+  });
+
+  it('matches display names semantically for nicknames', async () => {
+    const adapter = buildAdapter(record({ applicationName: 'Robert Smith' }));
+    const events = await adapter.buildEvidenceEvents(
+      'session-1',
+      observed({ displayName: 'Bob Smith' }),
+      OCCURRED_AT,
+    );
+
+    const displayNameMatch = events.find((event) => event.signalName === 'display_name_match');
+    expect(displayNameMatch?.value).toMatchObject({
+      matched: true,
+      similarity: expect.any(Number),
+      confidence: expect.any(Number),
+      matchedFields: expect.arrayContaining(['nickname']),
+    });
+  });
+
+  it('matches reordered and abbreviated display names', async () => {
+    const adapter = buildAdapter(record({ applicationName: 'Jane Doe' }));
+    const events = await adapter.buildEvidenceEvents(
+      'session-1',
+      observed({ displayName: 'Doe, J.' }),
+      OCCURRED_AT,
+    );
+
+    const displayNameMatch = events.find((event) => event.signalName === 'display_name_match');
+    expect(displayNameMatch?.value).toMatchObject({ matched: true });
+  });
+
+  it('matches display names via filed aliases', async () => {
+    const adapter = buildAdapter(
+      record({ applicationName: 'Elizabeth Doe', aliases: ['Liz Doe'] }),
+    );
+    const events = await adapter.buildEvidenceEvents(
+      'session-1',
+      observed({ displayName: 'Liz Doe' }),
+      OCCURRED_AT,
+    );
+
+    const displayNameMatch = events.find((event) => event.signalName === 'display_name_match');
+    expect(displayNameMatch?.value).toMatchObject({
+      matched: true,
+      matchedFields: expect.arrayContaining(['alias']),
     });
   });
 

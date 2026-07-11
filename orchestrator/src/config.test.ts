@@ -184,3 +184,39 @@ describe('loadConfig — replicaId (RFC §9.4; Plan M7)', () => {
     expect(first).not.toBe(second);
   });
 });
+
+describe('loadConfig — confidenceCalibration', () => {
+  it('defaults to disabled identity Platt scaling', () => {
+    const config = loadConfig({});
+    expect(config.confidenceCalibration).toEqual({
+      enabled: false,
+      method: 'platt',
+      platt: { a: 1, b: 0 },
+      isotonicKnots: [
+        { x: 0, y: 0 },
+        { x: 0.25, y: 0.25 },
+        { x: 0.5, y: 0.5 },
+        { x: 0.75, y: 0.75 },
+        { x: 1, y: 1 },
+      ],
+    });
+  });
+
+  it('loads enabled isotonic calibration from environment variables', () => {
+    const config = loadConfig({
+      CONFIDENCE_CALIBRATION_ENABLED: 'true',
+      CONFIDENCE_CALIBRATION_METHOD: 'isotonic',
+      CONFIDENCE_CALIBRATION_ISOTONIC_KNOTS: JSON.stringify([
+        { x: 0, y: 0 },
+        { x: 1, y: 0.8 },
+      ]),
+    });
+
+    expect(config.confidenceCalibration.enabled).toBe(true);
+    expect(config.confidenceCalibration.method).toBe('isotonic');
+    expect(config.confidenceCalibration.isotonicKnots).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 0.8 },
+    ]);
+  });
+});

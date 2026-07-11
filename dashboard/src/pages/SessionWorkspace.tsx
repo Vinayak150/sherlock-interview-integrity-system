@@ -1,6 +1,13 @@
 import { useCallback, useState } from 'react';
 
 import type { DashboardApiClient } from '../apiClient.js';
+import {
+  AiEvidenceSummaryCard,
+  ContradictionPanel,
+  CrossModalConsistencyCard,
+  ModelInformationCard,
+  SessionDiagnosticsCard,
+} from '../components/cards/AiReasoningCards.js';
 import { AccommodationForm, ExplanationPanel } from '../components/cards/ExplanationPanel.js';
 import { DecisionPanel } from '../components/cards/DecisionPanel.js';
 import { EvidenceSummary, SessionPanel } from '../components/cards/SessionPanel.js';
@@ -95,6 +102,22 @@ export function SessionWorkspace({
         loading={loading && latestDecision === null}
       />
 
+      <AiEvidenceSummaryCard
+        decision={latestDecision}
+        loading={loading && latestDecision === null}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <CrossModalConsistencyCard
+          decision={latestDecision}
+          loading={loading && latestDecision === null}
+        />
+        <ContradictionPanel
+          decision={latestDecision}
+          loading={loading && latestDecision === null}
+        />
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-2">
         <Timeline
           events={buildTimeline(decisionHistory)}
@@ -122,6 +145,13 @@ export function SessionWorkspace({
           disabled={submitting}
         />
       </div>
+
+      <SessionDiagnosticsCard
+        decision={latestDecision}
+        loading={loading && latestDecision === null}
+      />
+
+      <ModelInformationCard />
     </div>
   );
 }

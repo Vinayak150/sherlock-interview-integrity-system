@@ -14,8 +14,11 @@ import {
   VisualBundleAdapter,
 } from './bundles/index.js';
 import { loadConfig } from './config.js';
+import { ConfidenceCalibrator } from './calibration/index.js';
 import { DecisionEngine } from './decision/index.js';
-import { ExplanationEngine, LlmNarrativeAdapter, StubLlmProvider } from './explanation/index.js';
+import { AiMetricsRecorder } from './observability/index.js';
+import { ExplanationEngine, LlmNarrativeAdapter } from './explanation/index.js';
+import { LLMProviderFactory } from './llm/index.js';
 import { ChangePointDetector, FusionEngine } from './fusion/index.js';
 import { createLogger } from './logger.js';
 import { HttpModelServingClient } from './modelserving_client/index.js';
@@ -114,14 +117,22 @@ function main(): void {
   const elicitationAdapter = new ElicitationBundleAdapter();
 
   const fusionEngine = new FusionEngine();
+  const confidenceCalibrator = new ConfidenceCalibrator({
+    enabled: config.confidenceCalibration.enabled,
+    method: config.confidenceCalibration.method,
+    platt: config.confidenceCalibration.platt,
+    isotonicKnots: config.confidenceCalibration.isotonicKnots,
+  });
   const lifecycleStore = new SessionLifecycleStore(new LifecycleStateManager(), snapshotRepository);
   const decisionEngine = new DecisionEngine();
-  const explanationEngine = new ExplanationEngine();
+  const llmProvider = LLMProviderFactory.create();
+  const explanationEngine = new ExplanationEngine({ llmProvider });
+  const aiMetricsRecorder = new AiMetricsRecorder(logger);
 
   logger.warn(
-    'no real LLM provider is configured -- the narrative layer is served behind a deterministic template, not a real model (see src/explanation/llmProvider.ts)',
+    'no real LLM provider is configured -- the narrative layer is served behind a deterministic structured stub, not a real model (see src/llm/stubProvider.ts)',
   );
-  const llmNarrativeAdapter = new LlmNarrativeAdapter(new StubLlmProvider());
+  const llmNarrativeAdapter = new LlmNarrativeAdapter(llmProvider);
 
   // Plan M13: dashboard-facing additions. `AccommodationDisclosureRepository` is in-memory only
   // for now (see that module's own doc comment on this stated scope limitation); the aggregate
@@ -139,6 +150,14 @@ function main(): void {
   );
   const auditLogRepository = new InMemoryAuditLogRepository();
   const appealRepository = new InMemoryAppealRepository();
+
+  logger.info(
+    {
+      confidenceCalibrationEnabled: config.confidenceCalibration.enabled,
+      confidenceCalibrationMethod: config.confidenceCalibration.method,
+    },
+    'confidence calibration configuration loaded',
+  );
 
   const orchestrationService = new SessionOrchestrationService(
     claimAdapter,
@@ -158,6 +177,8 @@ function main(): void {
     sessionEventBus,
     auditLogRepository,
     appealRepository,
+    confidenceCalibrator,
+    aiMetricsRecorder,
   );
 
   const httpServer = createHttpServer(orchestrationService, logger);

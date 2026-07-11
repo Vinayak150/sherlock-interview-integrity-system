@@ -1,34 +1,44 @@
 import { describe, expect, it } from 'vitest';
 
 import { validateNarrative } from './narrativeValidator.js';
+import { emptyStructuredEvidenceSummary } from './evidenceSummary.js';
 import type { EvidenceReport } from './types.js';
 
 function report(overrides: Partial<EvidenceReport> = {}): EvidenceReport {
+  const { summary: summaryOverride, ...rest } = overrides;
+  const supporting = rest.topContributingSignals ?? [
+    {
+      bundle: 'claim',
+      signalName: 'email_domain_match',
+      outcome: 'SUPPORTS',
+      decayedLogLikelihoodRatio: 0.15,
+      occurredAt: new Date(),
+    },
+  ];
+  const missing = rest.missingEvidence ?? [
+    {
+      bundle: 'claim',
+      signalName: 'calendar_invite_match',
+      healthStatus: 'NO_SIGNAL_DETECTED',
+      occurredAt: new Date(),
+    },
+  ];
+  const baseSummary = emptyStructuredEvidenceSummary({
+    confidence: rest.probability ?? 0.8,
+    strongestSupportingEvidence: supporting,
+    missingEvidence: missing,
+  });
   return {
     sessionId: 'session-1',
     generatedAt: new Date('2026-07-10T12:00:00.000Z'),
     lifecycleState: 'LIKELY_CANDIDATE',
     probability: 0.8,
-    topContributingSignals: [
-      {
-        bundle: 'claim',
-        signalName: 'email_domain_match',
-        outcome: 'SUPPORTS',
-        decayedLogLikelihoodRatio: 0.15,
-        occurredAt: new Date(),
-      },
-    ],
+    topContributingSignals: supporting,
     contradictoryEvidence: [],
-    missingEvidence: [
-      {
-        bundle: 'claim',
-        signalName: 'calendar_invite_match',
-        healthStatus: 'NO_SIGNAL_DETECTED',
-        occurredAt: new Date(),
-      },
-    ],
+    missingEvidence: missing,
     alternativeHypotheses: [],
-    ...overrides,
+    summary: summaryOverride ?? baseSummary,
+    ...rest,
   };
 }
 

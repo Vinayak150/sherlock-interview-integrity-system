@@ -2,6 +2,8 @@ import type { BundleName } from '@sherlock/contracts';
 
 import type { SignalOutcome } from '../fusion/index.js';
 import type { LifecycleState } from '../statemachine/index.js';
+import type { ContradictionReasoningSummary } from './contradictionReasoning.js';
+import type { CrossModalReasoningSummary } from './crossModalReasoning.js';
 
 /**
  * One evidence event's decayed contribution at report-generation time,
@@ -34,6 +36,43 @@ export interface MissingEvidenceItem {
   readonly occurredAt: Date;
 }
 
+/** Reviewer guidance derived from lifecycle state + posterior at report time. */
+export type EvidenceRecommendation =
+  | 'NONE'
+  | 'DEFER_TO_ORDINARY_JUDGMENT'
+  | 'MONITOR'
+  | 'ADJUDICATE'
+  | 'MANDATORY_REVIEW';
+
+/**
+ * Structured evidence summary for one decision/report (RFC §8). Groups the
+ * reviewer-facing facts the Explanation Engine deterministically derives from
+ * fusion output — strongest support, conflicts, gaps, calibrated confidence,
+ * uncertainty width, and lifecycle-aligned guidance.
+ */
+export interface StructuredEvidenceSummary {
+  readonly strongestSupportingEvidence: readonly ContributingSignal[];
+  readonly conflictingEvidence: readonly ContributingSignal[];
+  readonly missingEvidence: readonly MissingEvidenceItem[];
+  /** Effective calibrated confidence (`FusionPosterior.probability`). */
+  readonly confidence: number;
+  /** Raw fusion probability before optional post-hoc calibration. */
+  readonly rawConfidence: number;
+  /** Credible-interval width — wider means sparser or more contradictory evidence. */
+  readonly uncertainty: number;
+  readonly recommendation: EvidenceRecommendation;
+  /**
+   * Contradiction-aware enrichment reused from `CandidateConfidenceEngine`
+   * metrics. `null` when the caller did not supply precomputed metrics.
+   */
+  readonly contradictionReasoning: ContradictionReasoningSummary | null;
+  /**
+   * Cross-modal identity consistency enrichment reused from
+   * `CandidateConfidenceEngine`. `null` when metrics were not supplied.
+   */
+  readonly crossModalReasoning: CrossModalReasoningSummary | null;
+}
+
 /**
  * The structured Evidence Report (RFC §8; Plan M6). Deterministically
  * built from Fusion Engine (M3) and persisted-evidence (M1) facts only —
@@ -60,4 +99,6 @@ export interface EvidenceReport {
    * before.
    */
   readonly alternativeHypotheses: readonly string[];
+  /** Structured reviewer summary — additive to the legacy ranked lists above. */
+  readonly summary: StructuredEvidenceSummary;
 }

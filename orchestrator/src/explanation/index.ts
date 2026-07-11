@@ -8,7 +8,23 @@
  * alerting, no recommendation, no abstention logic) — that is
  * `decision/`'s job (M5) — and has no import from it.
  */
-export type { ContributingSignal, EvidenceReport, MissingEvidenceItem } from './types.js';
+export type { CrossModalReasoningSummary } from './crossModalReasoning.js';
+export { buildCrossModalReasoningSummary } from './crossModalReasoning.js';
+export type {
+  ContradictionReasoningSummary,
+  IgnoredEvidenceItem,
+  StructuredConfidenceReason,
+  ConfidenceReasonKind,
+} from './contradictionReasoning.js';
+export { buildContradictionReasoningSummary } from './contradictionReasoning.js';
+export type {
+  ContributingSignal,
+  EvidenceRecommendation,
+  EvidenceReport,
+  MissingEvidenceItem,
+  StructuredEvidenceSummary,
+} from './types.js';
+export { buildStructuredEvidenceSummary, deriveEvidenceRecommendation, emptyStructuredEvidenceSummary } from './evidenceSummary.js';
 
 export type { BuildReportInput, ExplanationEngineOptions } from './explanationEngine.js';
 export { ExplanationEngine } from './explanationEngine.js';
@@ -19,6 +35,20 @@ export { ExplanationEngine } from './explanationEngine.js';
  * itself (M6, untouched) — narrative generation is optional and
  * degradable; the structured report is not.
  */
+export type { LLMProviderFactoryOptions, LLMProviderKind } from '../llm/index.js';
+export {
+  LLMProviderFactory,
+  StubLLMProvider as StructuredStubLLMProvider,
+  buildLLMExplanationRequest,
+} from '../llm/index.js';
+export type {
+  LLMExplanationRequest,
+  LLMExplanationResponse,
+  LLMHealthCheckResponse,
+  LLMProvider,
+  RankedCandidateInput,
+} from '../llm/index.js';
+
 export type { LlmProvider } from './llmProvider.js';
 export { LlmProviderUnavailableError, StubLlmProvider } from './llmProvider.js';
 

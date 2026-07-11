@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import 'dotenv/config';
 
+import type { CalibrationMethod, IsotonicKnot, PlattScalingParameters } from './calibration/types.js';
+
 /**
  * Environment management for the orchestrator deployable (RFC §9.2).
  *
@@ -68,6 +70,14 @@ export interface SecurityConfig {
   readonly dataResidencyRegion: string;
 }
 
+/** Optional post-fusion confidence calibration (RFC §14/§16). */
+export interface ConfidenceCalibrationConfig {
+  readonly enabled: boolean;
+  readonly method: CalibrationMethod;
+  readonly platt: PlattScalingParameters;
+  readonly isotonicKnots: readonly IsotonicKnot[];
+}
+
 export interface OrchestratorConfig {
   readonly nodeEnv: NodeEnv;
   readonly logLevel: string;
@@ -79,6 +89,7 @@ export interface OrchestratorConfig {
   /** This process's own identity on the consistent-hash ring (RFC §9.4) — falls back to a random UUID per process start when unset, since no real multi-replica deployment exists yet to assign one deliberately. */
   readonly replicaId: string;
   readonly security: SecurityConfig;
+  readonly confidenceCalibration: ConfidenceCalibrationConfig;
 }
 
 const DEFAULT_POSTGRES_PORT = 5432;
@@ -154,6 +165,67 @@ function loadSecurityConfig(env: NodeJS.ProcessEnv): SecurityConfig {
   };
 }
 
+function readBoolean(raw: string | undefined, fallback = false): boolean {
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+  return raw.trim().toLowerCase() === 'true';
+}
+
+function readNumber(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function readCalibrationMethod(raw: string | undefined): CalibrationMethod {
+  return raw === 'isotonic' ? 'isotonic' : 'platt';
+}
+
+function loadConfidenceCalibrationConfig(env: NodeJS.ProcessEnv): ConfidenceCalibrationConfig {
+  const defaultKnots: readonly IsotonicKnot[] = [
+    { x: 0, y: 0 },
+    { x: 0.25, y: 0.25 },
+    { x: 0.5, y: 0.5 },
+    { x: 0.75, y: 0.75 },
+    { x: 1, y: 1 },
+  ];
+
+  let isotonicKnots = defaultKnots;
+  const knotsJson = env.CONFIDENCE_CALIBRATION_ISOTONIC_KNOTS;
+  if (knotsJson !== undefined && knotsJson.trim() !== '') {
+    try {
+      const parsed = JSON.parse(knotsJson) as unknown;
+      if (
+        Array.isArray(parsed) &&
+        parsed.every(
+          (entry) =>
+            typeof entry === 'object' &&
+            entry !== null &&
+            typeof (entry as { x?: unknown }).x === 'number' &&
+            typeof (entry as { y?: unknown }).y === 'number',
+        )
+      ) {
+        isotonicKnots = parsed as IsotonicKnot[];
+      }
+    } catch {
+      isotonicKnots = defaultKnots;
+    }
+  }
+
+  return {
+    enabled: readBoolean(env.CONFIDENCE_CALIBRATION_ENABLED, false),
+    method: readCalibrationMethod(env.CONFIDENCE_CALIBRATION_METHOD),
+    platt: {
+      a: readNumber(env.CONFIDENCE_CALIBRATION_PLATT_A, 1),
+      b: readNumber(env.CONFIDENCE_CALIBRATION_PLATT_B, 0),
+    },
+    isotonicKnots,
+  };
+}
+
 function loadReplicaId(env: NodeJS.ProcessEnv): string {
   return env.ORCHESTRATOR_REPLICA_ID === undefined || env.ORCHESTRATOR_REPLICA_ID.trim() === ''
     ? randomUUID()
@@ -171,5 +243,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): OrchestratorCo
     modelServing: loadModelServingConfig(env),
     replicaId: loadReplicaId(env),
     security: loadSecurityConfig(env),
+    confidenceCalibration: loadConfidenceCalibrationConfig(env),
   };
 }

@@ -12,6 +12,11 @@
  * mitigation: "transcript content is always treated as data, never
  * instructions").
  */
+/**
+ * Legacy narrative provider interface (prompt-string based). Preserved for
+ * backward compatibility with older call sites. New integrations should use
+ * `llm/LLMProvider` via `LLMProviderFactory` instead.
+ */
 export interface LlmProvider {
   generateNarrative(prompt: string): Promise<string>;
 }

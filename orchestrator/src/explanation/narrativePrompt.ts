@@ -15,8 +15,45 @@ export function buildNarrativePrompt(report: EvidenceReport): string {
     `Lifecycle state: ${report.lifecycleState}`,
     `Probability: ${report.probability.toFixed(3)}`,
     '',
-    'Top contributing signals (ranked by |log likelihood ratio|):',
+    'Structured evidence summary:',
+    `Confidence: ${report.summary.confidence.toFixed(3)}`,
+    `Uncertainty (credible-interval width): ${report.summary.uncertainty.toFixed(3)}`,
+    `Recommendation: ${report.summary.recommendation}`,
+    '',
+    'Strongest supporting evidence:',
   ];
+
+  if (report.summary.strongestSupportingEvidence.length === 0) {
+    lines.push('- (none)');
+  } else {
+    for (const signal of report.summary.strongestSupportingEvidence) {
+      lines.push(
+        `- ${signal.bundle}/${signal.signalName}: ${signal.outcome} (${signal.decayedLogLikelihoodRatio.toFixed(3)})`,
+      );
+    }
+  }
+
+  lines.push('', 'Conflicting evidence:');
+  if (report.summary.conflictingEvidence.length === 0) {
+    lines.push('- (none)');
+  } else {
+    for (const signal of report.summary.conflictingEvidence) {
+      lines.push(
+        `- ${signal.bundle}/${signal.signalName}: ${signal.outcome} (${signal.decayedLogLikelihoodRatio.toFixed(3)})`,
+      );
+    }
+  }
+
+  lines.push('', 'Missing evidence:');
+  if (report.summary.missingEvidence.length === 0) {
+    lines.push('- (none)');
+  } else {
+    for (const item of report.summary.missingEvidence) {
+      lines.push(`- ${item.bundle}/${item.signalName} (${item.healthStatus})`);
+    }
+  }
+
+  lines.push('', 'Top contributing signals (ranked by |log likelihood ratio|):');
 
   if (report.topContributingSignals.length === 0) {
     lines.push('- (none)');

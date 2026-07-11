@@ -2,7 +2,13 @@
  * Public surface of the Model-Serving RPC client module (RFC §9.2/§9.6,
  * §12; Plan §9 repository structure `orchestrator/modelserving_client/`).
  */
-export { ModelServingUnavailableError, ModelServingValidationError } from './errors.js';
+export {
+  ModelServingLivenessError,
+  ModelServingNoFaceError,
+  ModelServingNoSpeechError,
+  ModelServingUnavailableError,
+  ModelServingValidationError,
+} from './errors.js';
 
 export type { EmbeddingResult, LivenessResult } from './types.js';
 

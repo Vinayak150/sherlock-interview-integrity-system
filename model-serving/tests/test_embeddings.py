@@ -1,8 +1,38 @@
 from __future__ import annotations
 
-import pytest
+import base64
 
-from model_serving.embeddings.extractor import EMBEDDING_DIMENSION, StubEmbeddingExtractor
+import pytest
+from fastapi.testclient import TestClient
+
+from model_serving.embeddings.extractor import EMBEDDING_DIMENSION, NoFaceDetectedError, StubEmbeddingExtractor
+from model_serving.serving_api.app import create_app
+
+
+def encoded(payload: bytes) -> str:
+    return base64.b64encode(payload).decode("ascii")
+
+
+class RaisingNoFaceExtractor:
+    def extract(self, payload: bytes) -> list[float]:
+        raise NoFaceDetectedError("No face detected in frame")
+
+
+class TestEmbeddingsFaceNoFace:
+    def test_returns_no_face_response_when_extractor_raises(self) -> None:
+        client = TestClient(create_app(face_extractor=RaisingNoFaceExtractor()))
+        response = client.post(
+            "/v1/embeddings/face",
+            json={"sessionId": "session-1", "payload": encoded(b"frame-bytes")},
+        )
+        assert response.status_code == 404
+        assert response.json() == {
+            "detail": {
+                "error": "NO_FACE",
+                "sessionId": "session-1",
+                "message": "No face detected in frame",
+            }
+        }
 
 
 class TestStubEmbeddingExtractor:
